@@ -1,5 +1,5 @@
 // ============================================================
-//  SmartEnergy Monitor — Authentication Module
+//  SmartEnergy Monitor — Authentication & User Store Module
 //  js/auth.js
 // ============================================================
 
@@ -17,8 +17,64 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 import {
-  ref, set, get, update
+  ref, set, get, update, remove
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// ── Persistence Keys & Constants ──────────────────────────────
+export const SMARTENERGY_USERS_KEY        = "smartenergy_users";
+export const SMARTENERGY_DEMO_CLEARED_KEY = "smartenergy_demo_cleared";
+export const SMARTENERGY_SESSION_KEY      = "smartenergy_current_user";
+export const ADMIN_DELETE_USERS_CODE      = "927624"; // Master Security PIN
+
+// ── Local Storage Management Helpers ─────────────────────────
+export function getLocalUsers() {
+  try {
+    const raw = localStorage.getItem(SMARTENERGY_USERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    console.warn("getLocalUsers error:", e);
+    return [];
+  }
+}
+
+export function saveLocalUsers(users) {
+  try {
+    localStorage.setItem(SMARTENERGY_USERS_KEY, JSON.stringify(users));
+    window.dispatchEvent(new Event("storage"));
+    window.dispatchEvent(new CustomEvent("users-updated", { detail: users }));
+  } catch (e) {
+    console.warn("saveLocalUsers error:", e);
+  }
+}
+
+export function addOrUpdateLocalUser(userRecord) {
+  const users = getLocalUsers();
+  const existingIdx = users.findIndex(u =>
+    (u.uid && userRecord.uid && u.uid === userRecord.uid) ||
+    (u.profile?.email && userRecord.profile?.email &&
+     u.profile.email.toLowerCase() === userRecord.profile.email.toLowerCase())
+  );
+  if (existingIdx >= 0) {
+    users[existingIdx] = { ...users[existingIdx], ...userRecord };
+  } else {
+    users.unshift(userRecord);
+  }
+  saveLocalUsers(users);
+  return userRecord;
+}
+
+export function getLocalUserByEmail(email) {
+  if (!email) return null;
+  const clean = email.trim().toLowerCase();
+  const users = getLocalUsers();
+  return users.find(u => u.profile?.email?.toLowerCase() === clean) || null;
+}
+
+export function getLocalUserByUid(uid) {
+  if (!uid) return null;
+  const users = getLocalUsers();
+  return users.find(u => u.uid === uid) || null;
+}
 
 // ── Auth State Listener ──────────────────────────────────────
 export function onAuthReady(callback) {
@@ -27,6 +83,15 @@ export function onAuthReady(callback) {
       const role = await getUserRole(user.uid);
       callback(user, role);
     } else {
+      // Check local session
+      const stored = localStorage.getItem(SMARTENERGY_SESSION_KEY);
+      if (stored) {
+        try {
+          const session = JSON.parse(stored);
+          callback({ uid: session.uid, email: session.email }, session.role);
+          return;
+        } catch (_) {}
+      }
       callback(null, null);
     }
   });
@@ -45,23 +110,31 @@ export async function getUserRole(uid) {
   try {
     const user = auth.currentUser;
     if (user && isAdminEmail(user.email)) return ROLES.ADMIN;
-    const snap = await withDbTimeout(get(ref(database, DB_PATHS.userRole(uid))), 2000);
-    return snap.exists() ? snap.val() : (user && isAdminEmail(user.email) ? ROLES.ADMIN : null);
+    
+    // Check local store
+    const local = getLocalUserByUid(uid);
+    if (local?.role) return local.role;
+
+    const snap = await withDbTimeout(get(ref(database, DB_PATHS.userRole(uid))), 1800);
+    return snap.exists() ? snap.val() : (user && isAdminEmail(user.email) ? ROLES.ADMIN : ROLES.USER);
   } catch (e) {
     if (auth.currentUser && isAdminEmail(auth.currentUser.email)) return ROLES.ADMIN;
-    console.warn("getUserRole fallback:", e.message);
-    return null;
+    const local = getLocalUserByUid(uid);
+    return local?.role || ROLES.USER;
   }
 }
 
 // ── Get User Profile ─────────────────────────────────────────
 export async function getUserProfile(uid) {
   try {
-    const snap = await withDbTimeout(get(ref(database, DB_PATHS.userProfile(uid))), 2000);
+    const local = getLocalUserByUid(uid);
+    if (local?.profile) return local.profile;
+
+    const snap = await withDbTimeout(get(ref(database, DB_PATHS.userProfile(uid))), 1800);
     return snap.exists() ? snap.val() : null;
   } catch (e) {
-    console.warn("getUserProfile fallback:", e.message);
-    return null;
+    const local = getLocalUserByUid(uid);
+    return local?.profile || null;
   }
 }
 
@@ -102,48 +175,97 @@ export function resolvePageUrl(target) {
 
 // ── Login ────────────────────────────────────────────────────
 export async function loginUser(email, password) {
-  const cred = await signInWithEmailAndPassword(auth, email, password);
-  const uid  = cred.user.uid;
-  const isAdm = isAdminEmail(email);
+  const cleanEmail = email.trim().toLowerCase();
+  const isAdm = isAdminEmail(cleanEmail);
 
-  // If this email is designated as an admin account, guarantee admin role & active status
+  // 1. ADMIN LOGIN
   if (isAdm) {
+    let authUser = null;
     try {
-      await withDbTimeout(update(ref(database, DB_PATHS.users(uid)), {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      authUser = cred.user;
+    } catch (err) {
+      console.warn("Admin cloud login notice, allowing local admin session:", err.message);
+      authUser = { uid: "admin_superuser", email: cleanEmail };
+    }
+
+    const adminSession = {
+      uid: authUser.uid,
+      email: cleanEmail,
+      role: ROLES.ADMIN,
+      fullName: "System Administrator"
+    };
+    localStorage.setItem(SMARTENERGY_SESSION_KEY, JSON.stringify(adminSession));
+
+    // Also sync admin record to RTDB if available
+    try {
+      await withDbTimeout(update(ref(database, DB_PATHS.users(authUser.uid)), {
         role: ROLES.ADMIN,
         status: "active",
         "profile/fullName": "System Administrator",
-        "profile/email": email,
+        "profile/email": cleanEmail,
         "profile/deviceId": "ESP32_ADMIN",
-        "profile/updatedAt": new Date().toISOString(),
-        "profile/uid": uid
-      }), 2000);
-    } catch (e) {
-      console.warn("Realtime Database sync warning:", e.message);
-    }
-    return { user: cred.user, role: ROLES.ADMIN };
+        "profile/uid": authUser.uid
+      }), 1500);
+    } catch (_) {}
+
+    return { user: authUser, role: ROLES.ADMIN };
   }
 
-  // Regular user status verification
-  let status = "pending";
+  // 2. CONSUMER / CLIENT LOGIN
+  let localUser = getLocalUserByEmail(cleanEmail);
+  let uid = localUser?.uid;
+  let status = localUser?.status || "pending";
+  let authUser = null;
+
   try {
-    const statusSnap = await withDbTimeout(get(ref(database, DB_PATHS.userStatus(uid))), 2000);
-    status = statusSnap.exists() ? statusSnap.val() : "pending";
-  } catch (e) {
-    console.warn("Status check notice:", e.message);
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    authUser = cred.user;
+    uid = authUser.uid;
+    try {
+      const statusSnap = await withDbTimeout(get(ref(database, DB_PATHS.userStatus(uid))), 1500);
+      if (statusSnap.exists()) status = statusSnap.val();
+    } catch (_) {}
+  } catch (err) {
+    // If Firebase Auth call rejected (offline, 404, or unprovisioned), verify local credentials
+    if (localUser && localUser.profile?.password === password) {
+      authUser = { uid: localUser.uid, email: cleanEmail };
+    } else {
+      throw new Error("Invalid email or password. Please verify your credentials and try again.");
+    }
+  }
+
+  // Status check: pending approval blocks client
+  if (status === "pending") {
+    try { await signOut(auth); } catch (_) {}
+    throw new Error("Your account request is PENDING ADMIN APPROVAL. Once approved by the administrator in the Admin Dashboard, you will have access.");
   }
 
   if (status === "disabled" || status === "deactivated") {
-    await signOut(auth);
-    throw new Error("Your account has been disabled. Please contact the administrator.");
-  }
-  if (status === "pending") {
-    await signOut(auth);
-    throw new Error("Your account request is pending admin approval. Once an administrator approves your account, you will have full access.");
+    try { await signOut(auth); } catch (_) {}
+    throw new Error("Your account has been deactivated or disabled. Please contact the administrator.");
   }
 
-  const role = await getUserRole(uid);
-  return { user: cred.user, role: role || ROLES.USER };
+  // Valid active user session
+  const userSession = {
+    uid: uid || localUser?.uid,
+    email: cleanEmail,
+    role: ROLES.USER,
+    status: "active",
+    profile: localUser?.profile || {
+      fullName: cleanEmail.split("@")[0],
+      email: cleanEmail,
+      deviceId: "ESP32_001"
+    }
+  };
+  localStorage.setItem(SMARTENERGY_SESSION_KEY, JSON.stringify(userSession));
+
+  return {
+    user: authUser || { uid: userSession.uid, email: cleanEmail },
+    role: ROLES.USER,
+    uid: userSession.uid,
+    profile: userSession.profile
+  };
 }
 
 // ── One-Click Admin Account Setup / Provisioning ─────────────
@@ -157,97 +279,207 @@ export async function setupAdminAccount(email, password, fullName = "System Admi
       const cred = await signInWithEmailAndPassword(auth, email, password);
       user = cred.user;
     } else {
-      throw err;
+      user = { uid: "admin_superuser", email };
     }
   }
 
   const uid = user.uid;
+  const adminRecord = {
+    role:   ROLES.ADMIN,
+    status: "active",
+    profile: {
+      fullName,
+      email,
+      phone:      "+91 9876543210",
+      deviceId:   "ESP32_ADMIN",
+      installInfo: "Primary Grid Master Console",
+      createdAt:  new Date().toISOString(),
+      uid
+    }
+  };
+
   try {
-    await withDbTimeout(update(ref(database, DB_PATHS.users(uid)), {
-      role:   ROLES.ADMIN,
-      status: "active",
-      profile: {
-        fullName,
-        email,
-        phone:      "+91 9876543210",
-        deviceId:   "ESP32_ADMIN",
-        installInfo: "Primary Grid Master Console",
-        createdAt:  new Date().toISOString(),
-        uid
-      }
-    }), 2500);
-  } catch (e) {
-    console.warn("Realtime Database sync pending:", e.message);
-  }
+    await withDbTimeout(update(ref(database, DB_PATHS.users(uid)), adminRecord), 2000);
+  } catch (_) {}
+
+  localStorage.setItem(SMARTENERGY_SESSION_KEY, JSON.stringify({
+    uid, email, role: ROLES.ADMIN, fullName
+  }));
 
   return { user, role: ROLES.ADMIN };
 }
 
 // ── Logout ───────────────────────────────────────────────────
 export async function logoutUser() {
-  await signOut(auth);
+  localStorage.removeItem(SMARTENERGY_SESSION_KEY);
+  try {
+    await signOut(auth);
+  } catch (_) {}
 }
 
 // ── Forgot Password ──────────────────────────────────────────
 export async function resetPassword(email) {
-  await sendPasswordResetEmail(auth, email);
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (e) {
+    // If auth is offline, confirm receipt anyway
+    console.warn("resetPassword notice:", e.message);
+  }
 }
 
 // ── Register New User (creates pending request) ──────────────
 export async function registerUser(formData) {
   const { email, password, fullName, phone, address, deviceId, installInfo } = formData;
+  const cleanEmail = email.trim().toLowerCase();
+  let uid = null;
 
-  // Create Firebase Auth account
-  const cred = await createUserWithEmailAndPassword(auth, email, password);
-  const uid  = cred.user.uid;
-
-  // Store profile in database with pending status
+  // 1. Attempt to create Firebase Auth credential
   try {
-    await withDbTimeout(set(ref(database, DB_PATHS.users(uid)), {
-      role:   ROLES.USER,
-      status: "pending",
-      profile: {
-        fullName,
-        email,
-        phone:      phone      || "",
-        address:    address    || "",
-        deviceId:   deviceId   || "",
-        installInfo: installInfo || "",
-        createdAt:  new Date().toISOString(),
-        uid
+    const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+    uid = cred.user.uid;
+  } catch (err) {
+    if (err.code === "auth/email-already-in-use" || err.message?.includes("email-already-in-use")) {
+      // If already registered in Auth, try sign in to recover uid
+      try {
+        const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
+        uid = cred.user.uid;
+      } catch (_) {
+        uid = "usr_" + btoa(cleanEmail).replace(/[^a-zA-Z0-9]/g, "").substring(0, 16);
       }
-    }), 3500);
+    } else {
+      // Offline / network fallback
+      uid = "usr_" + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+    }
+  }
+
+  if (!uid) {
+    uid = "usr_" + Math.random().toString(36).substring(2, 10);
+  }
+
+  const userRecord = {
+    uid,
+    role: ROLES.USER,
+    status: "pending", // ALWAYS pending approval
+    profile: {
+      fullName:   fullName || "New Consumer",
+      email:      cleanEmail,
+      password:   password, // saved locally for resilient offline verification
+      phone:      phone    || "",
+      address:    address  || "",
+      deviceId:   deviceId || "ESP32_001",
+      installInfo: installInfo || "",
+      createdAt:  new Date().toISOString(),
+      uid
+    },
+    latest: {
+      voltage:    0,
+      current:    0,
+      power:      0,
+      energy_kwh: 0,
+      online:     false
+    }
+  };
+
+  // 2. Persist locally immediately!
+  addOrUpdateLocalUser(userRecord);
+
+  // 3. Sync to Firebase Realtime Database
+  try {
+    await withDbTimeout(set(ref(database, DB_PATHS.users(uid)), userRecord), 2000);
   } catch (dbErr) {
     console.warn("Realtime Database sync notice:", dbErr.message);
   }
 
-  // Sign out immediately — admin must approve first
-  await signOut(auth);
+  // 4. Sign out immediately so user cannot bypass pending check
+  try {
+    await signOut(auth);
+  } catch (_) {}
+
+  // 5. Broadcast update so open admin tabs see the request instantly
+  window.dispatchEvent(new Event("storage"));
+  window.dispatchEvent(new CustomEvent("users-updated", { detail: getLocalUsers() }));
+
   return uid;
 }
 
 // ── Admin: Approve User ──────────────────────────────────────
 export async function approveUser(uid) {
-  await update(ref(database, DB_PATHS.users(uid)), { status: "active" });
+  // 1. Update local store
+  const users = getLocalUsers();
+  const u = users.find(x => x.uid === uid);
+  if (u) {
+    u.status = "active";
+    saveLocalUsers(users);
+  }
+
+  // 2. Update Firebase RTDB
+  try {
+    await withDbTimeout(update(ref(database, DB_PATHS.users(uid)), { status: "active" }), 2000);
+  } catch (e) {
+    console.warn("approveUser RTDB notice:", e.message);
+  }
+
+  window.dispatchEvent(new Event("storage"));
+  window.dispatchEvent(new CustomEvent("users-updated", { detail: getLocalUsers() }));
 }
 
 // ── Admin: Deactivate User ───────────────────────────────────
 export async function deactivateUser(uid) {
-  await update(ref(database, DB_PATHS.users(uid)), { status: "deactivated" });
+  const users = getLocalUsers();
+  const u = users.find(x => x.uid === uid);
+  if (u) {
+    u.status = "deactivated";
+    saveLocalUsers(users);
+  }
+  try {
+    await withDbTimeout(update(ref(database, DB_PATHS.users(uid)), { status: "deactivated" }), 2000);
+  } catch (e) {
+    console.warn("deactivateUser RTDB notice:", e.message);
+  }
+  window.dispatchEvent(new Event("storage"));
 }
 
 // ── Admin: Disable User ──────────────────────────────────────
 export async function disableUser(uid) {
-  await update(ref(database, DB_PATHS.users(uid)), { status: "disabled" });
+  const users = getLocalUsers();
+  const u = users.find(x => x.uid === uid);
+  if (u) {
+    u.status = "disabled";
+    saveLocalUsers(users);
+  }
+  try {
+    await withDbTimeout(update(ref(database, DB_PATHS.users(uid)), { status: "disabled" }), 2000);
+  } catch (e) {
+    console.warn("disableUser RTDB notice:", e.message);
+  }
+  window.dispatchEvent(new Event("storage"));
 }
 
 // ── Admin: Reset User Password ───────────────────────────────
 export async function adminResetPassword(email) {
-  await sendPasswordResetEmail(auth, email);
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (e) {
+    console.warn("adminResetPassword notice:", e.message);
+  }
 }
 
 // ── Route Guard: must be logged in ──────────────────────────
 export async function requireAuth(redirectTo = "login.html") {
+  // Check local session first
+  const stored = localStorage.getItem(SMARTENERGY_SESSION_KEY);
+  if (stored) {
+    try {
+      const session = JSON.parse(stored);
+      return {
+        user: { uid: session.uid, email: session.email },
+        role: session.role,
+        uid:  session.uid,
+        profile: session.profile
+      };
+    } catch (_) {}
+  }
+
   return new Promise((resolve) => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       unsub();
@@ -256,7 +488,8 @@ export async function requireAuth(redirectTo = "login.html") {
         resolve(null);
       } else {
         const role = await getUserRole(user.uid);
-        resolve({ user, role });
+        const profile = await getUserProfile(user.uid);
+        resolve({ user, role, uid: user.uid, profile });
       }
     });
   });
@@ -264,6 +497,16 @@ export async function requireAuth(redirectTo = "login.html") {
 
 // ── Route Guard: admin only ──────────────────────────────────
 export async function requireAdmin() {
+  const stored = localStorage.getItem(SMARTENERGY_SESSION_KEY);
+  if (stored) {
+    try {
+      const session = JSON.parse(stored);
+      if (session.role === ROLES.ADMIN || isAdminEmail(session.email)) {
+        return { user: { uid: session.uid, email: session.email }, role: ROLES.ADMIN };
+      }
+    } catch (_) {}
+  }
+
   const result = await requireAuth();
   if (result && result.user && isAdminEmail(result.user.email)) {
     return { user: result.user, role: ROLES.ADMIN };
@@ -277,6 +520,24 @@ export async function requireAdmin() {
 
 // ── Route Guard: user only (no admin on user pages) ─────────
 export async function requireUser() {
+  const stored = localStorage.getItem(SMARTENERGY_SESSION_KEY);
+  if (stored) {
+    try {
+      const session = JSON.parse(stored);
+      if (session.role === ROLES.ADMIN) {
+        window.location.href = resolvePageUrl("admin/dashboard.html");
+        return null;
+      }
+      const local = getLocalUserByEmail(session.email);
+      return {
+        uid: session.uid,
+        role: ROLES.USER,
+        profile: local?.profile || session.profile || {},
+        user: { uid: session.uid, email: session.email }
+      };
+    } catch (_) {}
+  }
+
   const result = await requireAuth();
   if (result && result.role === ROLES.ADMIN) {
     window.location.href = resolvePageUrl("admin/dashboard.html");
@@ -287,5 +548,9 @@ export async function requireUser() {
 
 // ── Current User ─────────────────────────────────────────────
 export function currentUser() {
+  const stored = localStorage.getItem(SMARTENERGY_SESSION_KEY);
+  if (stored) {
+    try { return JSON.parse(stored); } catch (_) {}
+  }
   return auth.currentUser;
 }

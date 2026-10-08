@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -305,11 +305,17 @@
     try {
       if (!isDemoModeRequested) {
         activeUser = await requireUser();
-        uid = activeUser.uid;
-        if (activeUser.profile?.deviceId) deviceId = activeUser.profile.deviceId;
-        if (activeUser.profile?.fullName) {
-          document.getElementById("user-display-name").textContent = activeUser.profile.fullName;
-          document.getElementById("user-avatar").textContent = activeUser.profile.fullName.substring(0, 1).toUpperCase();
+        if (activeUser) {
+          uid = activeUser.uid || activeUser.user?.uid || "client_user";
+          const p = activeUser.profile || {};
+          if (p.deviceId) deviceId = p.deviceId;
+          if (p.fullName) {
+            document.getElementById("user-display-name").textContent = p.fullName;
+            document.getElementById("user-avatar").textContent = p.fullName.substring(0, 1).toUpperCase();
+          } else if (activeUser.user?.email) {
+            document.getElementById("user-display-name").textContent = activeUser.user.email;
+            document.getElementById("user-avatar").textContent = activeUser.user.email.substring(0, 1).toUpperCase();
+          }
         }
       } else {
         document.getElementById("user-display-name").textContent = "Demo Guest";
@@ -317,7 +323,7 @@
       }
     } catch (e) {
       console.warn("Auth check:", e);
-      document.getElementById("user-display-name").textContent = "Demo Client";
+      document.getElementById("user-display-name").textContent = "Active Consumer";
     }
 
     document.getElementById("user-device-badge").textContent = deviceId;
@@ -364,6 +370,7 @@
     const serial = new SerialManager({
       onConnect: () => {
         showToast("ESP32 Connected via USB Web Serial!", "success");
+        connectBtn.disabled = false;
         connectBtn.textContent = "🔌 Disconnect Device";
         connectBtn.classList.replace("btn-primary", "btn-outline");
         portInfoBadge.textContent = "Port: Connected (115200)";
@@ -372,6 +379,7 @@
       },
       onDisconnect: (reason) => {
         showToast(`Device Disconnected (${reason})`, "warning");
+        connectBtn.disabled = false;
         connectBtn.textContent = "🔌 Connect Device";
         connectBtn.classList.replace("btn-outline", "btn-primary");
         portInfoBadge.textContent = "Port: Disconnected";
@@ -397,16 +405,30 @@
     // Connect button click
     connectBtn.addEventListener("click", async () => {
       if (serial.isConnected) {
+        connectBtn.disabled = true;
         await serial.disconnect();
+        connectBtn.disabled = false;
       } else {
+        if (!SerialManager.isSupported()) {
+          showToast("Web Serial API is not supported in this browser. Please open this app in Google Chrome or Microsoft Edge.", "error", 6000);
+          return;
+        }
+
         try {
-          if (!SerialManager.isSupported()) {
-            showToast("Web Serial API is not supported in this browser. Please use Google Chrome or MS Edge.", "error");
-            return;
+          connectBtn.disabled = true;
+          connectBtn.textContent = "⏳ Select Port...";
+          showToast("Please choose your ESP32 COM port from the browser dialog.", "info", 4000);
+
+          const success = await serial.connect();
+          if (success === false) {
+            connectBtn.textContent = "🔌 Connect Device";
+            connectBtn.disabled = false;
+            showToast("No serial port was selected.", "warning");
           }
-          await serial.connect();
         } catch (err) {
-          showToast(`Connection error: ${err.message}`, "error");
+          connectBtn.textContent = "🔌 Connect Device";
+          connectBtn.disabled = false;
+          showToast(err.message, "error", 7000);
         }
       }
     });

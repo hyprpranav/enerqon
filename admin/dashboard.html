@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin Dashboard — SmartEnergy Monitor</title>
+  <title>Admin Dashboard | SmartEnergy</title>
   <meta name="description" content="Master administrative management and real-time monitoring of all energy monitoring units." />
   <link rel="stylesheet" href="../css/style.css" />
   <link rel="stylesheet" href="../css/dashboard.css" />
@@ -106,7 +106,10 @@
           <h1 style="font-size:1.75rem;font-weight:700;margin-bottom:0.25rem;">System Master Dashboard</h1>
           <p style="color:var(--text-secondary);font-size:0.875rem;">Real-time grid consumption, anomaly detection & client device status</p>
         </div>
-        <div style="display:flex;gap:0.75rem;align-items:center;">
+        <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+          <button id="delete-all-users-btn" class="btn btn-danger btn-sm" style="display:inline-flex;align-items:center;gap:6px;">
+            <span>🗑️</span> Delete All Users
+          </button>
           <a href="users.html" class="btn btn-primary btn-sm">
             👥 Manage Users
           </a>
@@ -318,13 +321,48 @@
     </div>
   </div>
 
+  <!-- Delete All Users Security Confirmation Modal -->
+  <div id="delete-users-modal" class="modal-backdrop hidden">
+    <div class="modal" style="max-width:480px;border-color:rgba(239,68,68,0.4);">
+      <div class="modal-header">
+        <span class="modal-title" style="color:var(--clr-danger);display:flex;align-items:center;gap:8px;">
+          ⚠️ Delete All Registered Users
+        </span>
+        <button class="modal-close" id="close-delete-modal">✕</button>
+      </div>
+      <div style="margin-bottom:1.25rem;">
+        <p style="font-size:0.9rem;color:var(--text-secondary);line-height:1.5;">
+          This will permanently delete <strong>all registered consumer units, mock records, and pending access requests</strong>.
+        </p>
+        <div class="alert alert-danger" style="margin-top:0.75rem;font-size:0.85rem;padding:0.75rem;">
+          🔒 <strong>Security Verification Required:</strong><br/>
+          Please enter the authorization code to confirm deletion.
+        </div>
+      </div>
+      <form id="delete-users-form">
+        <div class="form-group">
+          <label class="form-label" for="security-passcode-input">Security Confirmation Code *</label>
+          <input type="password" id="security-passcode-input" class="form-control" placeholder="Enter code (927624)" required maxlength="10" autocomplete="off" style="font-size:1.15rem;letter-spacing:0.2em;text-align:center;" />
+          <div id="delete-error-hint" class="form-hint text-danger hidden" style="color:var(--clr-danger);margin-top:0.4rem;font-weight:600;">
+            ❌ Invalid security code. Action rejected.
+          </div>
+        </div>
+        <div style="display:flex;gap:0.75rem;margin-top:1.5rem;">
+          <button type="button" id="cancel-delete-btn" class="btn btn-secondary w-full">Cancel</button>
+          <button type="submit" id="confirm-delete-btn" class="btn btn-danger w-full">Confirm & Delete All</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="toast-container"></div>
 
   <script type="module">
     import { requireAdmin, logoutUser } from "../js/auth.js";
     import {
       adminWatchUsers, adminLoadUsers, renderUserCard,
-      loadSettings, saveTariff, saveCalibration, saveThresholds
+      loadSettings, saveTariff, saveCalibration, saveThresholds,
+      verifyAndDeleteAllUsers, ADMIN_DELETE_USERS_CODE
     } from "../js/admin.js";
     import { startClock, showToast, DashboardManager } from "../js/dashboard.js";
 
@@ -431,35 +469,6 @@
       }
     });
 
-    // Generate rich mock users if Firebase has none yet
-    function getDemoUsers() {
-      return [
-        {
-          uid: "demo_user_1",
-          status: "active",
-          profile: { fullName: "Rajesh Kumar", email: "rajesh@example.com", deviceId: "ESP32_001", phone: "9876543210" },
-          latest: { voltage: 231.2, current: 2.14, power: 492.3, energy_kwh: 4.25, online: true }
-        },
-        {
-          uid: "demo_user_2",
-          status: "active",
-          profile: { fullName: "Priya Sharma", email: "priya@example.com", deviceId: "ESP32_002", phone: "9876543211" },
-          latest: { voltage: 228.4, current: 14.80, power: 3380.0, energy_kwh: 8.92, online: true } // Overload alert!
-        },
-        {
-          uid: "demo_user_3",
-          status: "pending",
-          profile: { fullName: "Vikram Singh", email: "vikram@example.com", deviceId: "ESP32_003", phone: "9876543212" },
-          latest: { voltage: 0, current: 0, power: 0, energy_kwh: 0, online: false }
-        },
-        {
-          uid: "demo_user_4",
-          status: "active",
-          profile: { fullName: "Ananya Patel", email: "ananya@example.com", deviceId: "ESP32_004", phone: "9876543213" },
-          latest: { voltage: 230.1, current: 0.85, power: 195.6, energy_kwh: 1.84, online: false }
-        }
-      ];
-    }
 
     // Render User Cards
     function renderCards() {
@@ -479,7 +488,15 @@
       }
 
       if (list.length === 0) {
-        container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);">No users found matching current filter.</div>`;
+        container.innerHTML = `
+          <div style="grid-column:1/-1;text-align:center;padding:3rem 1.5rem;background:var(--bg-surface);border:1px dashed var(--border-subtle);border-radius:var(--radius-lg);">
+            <div style="font-size:2.5rem;margin-bottom:0.75rem;">🔌</div>
+            <h3 style="font-size:1.1rem;font-weight:600;margin-bottom:0.4rem;">No Consumer Units Registered</h3>
+            <p style="font-size:0.85rem;color:var(--text-secondary);max-width:440px;margin:0 auto 1.25rem;">
+              No active consumers or pending requests matching this view. When a new user submits an account request, it will appear here for admin approval.
+            </p>
+            <a href="../register.html" target="_blank" class="btn btn-outline btn-sm">➕ Request / Register New Unit</a>
+          </div>`;
         return;
       }
 
@@ -526,22 +543,56 @@
       });
     });
 
-    // Render immediately with initial data so page is never stuck or delayed
-    currentUsers = getDemoUsers();
-    updateKPIs();
-    renderCards();
+    // Modal controls for Delete All Users
+    const deleteModal     = document.getElementById("delete-users-modal");
+    const openDeleteBtn   = document.getElementById("delete-all-users-btn");
+    const closeDeleteBtn  = document.getElementById("close-delete-modal");
+    const cancelDeleteBtn = document.getElementById("cancel-delete-btn");
+    const deleteForm      = document.getElementById("delete-users-form");
+    const codeInput       = document.getElementById("security-passcode-input");
+    const errorHint       = document.getElementById("delete-error-hint");
+
+    openDeleteBtn.addEventListener("click", () => {
+      deleteForm.reset();
+      errorHint.classList.add("hidden");
+      deleteModal.classList.remove("hidden");
+      setTimeout(() => codeInput.focus(), 100);
+    });
+    closeDeleteBtn.addEventListener("click", () => deleteModal.classList.add("hidden"));
+    cancelDeleteBtn.addEventListener("click", () => deleteModal.classList.add("hidden"));
+    deleteModal.addEventListener("click", (e) => { if (e.target === deleteModal) deleteModal.classList.add("hidden"); });
+
+    deleteForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorHint.classList.add("hidden");
+      const enteredCode = codeInput.value.trim();
+
+      if (enteredCode !== ADMIN_DELETE_USERS_CODE) {
+        errorHint.classList.remove("hidden");
+        showToast("Incorrect security code. Deletion cancelled.", "error");
+        codeInput.focus();
+        return;
+      }
+
+      try {
+        await verifyAndDeleteAllUsers(enteredCode);
+        currentUsers = [];
+        updateKPIs();
+        renderCards();
+        deleteModal.classList.add("hidden");
+        showToast("All users and demo records have been successfully deleted.", "success");
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    });
 
     // Load persisted settings in the background
     initSettings().catch(e => console.warn("Background initSettings:", e));
 
-    // Live Firebase Realtime Database listener
+    // Live real-time user watcher (dual cloud + localStorage sync)
     try {
       adminWatchUsers((users) => {
-        if (users && users.length > 0) {
-          currentUsers = users;
-        } else {
-          currentUsers = getDemoUsers();
-        }
+        currentUsers = users || [];
         updateKPIs();
         renderCards();
       });

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -206,7 +206,7 @@
   <div id="toast-container"></div>
 
   <script type="module">
-    import { requireAdmin, logoutUser, approveUser, deactivateUser, adminResetPassword } from "../js/auth.js";
+    import { requireAdmin, logoutUser, approveUser, deactivateUser, adminResetPassword, getLocalUserByUid } from "../js/auth.js";
     import { loadUserWithLatest } from "../js/dashboard.js";
     import { startClock, showToast, DashboardManager } from "../js/dashboard.js";
 
@@ -230,6 +230,10 @@
       try {
         userData = await loadUserWithLatest(uid);
       } catch {}
+
+      if (!userData) {
+        userData = getLocalUserByUid(uid);
+      }
 
       if (!userData) {
         // Fallback demo user

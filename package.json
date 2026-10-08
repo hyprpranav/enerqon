@@ -4,6 +4,7 @@
   "description": "Smart Energy Monitoring & Consumption Cost Analytics System with ESP32 & Firebase",
   "main": "server.js",
   "scripts": {
+    "build": "echo 'Build complete'",
     "dev": "node server.js",
     "start": "node server.js",
     "serve": "npx serve . -l 3000",

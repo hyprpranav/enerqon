@@ -172,16 +172,19 @@
     try {
       // Step 1: Provision Auth and RTDB Admin node
       const { user } = await setupAdminAccount(email, password, fullName);
-      showStatus("Admin Auth & Role created! Initializing system settings...", "info");
+      showStatus("Admin Auth & Role created! Finalizing setup...", "info");
 
-      // Step 2: Ensure default settings exist in RTDB
+      // Step 2: Ensure default settings exist in RTDB (non-blocking)
       try {
-        const settingsSnap = await get(ref(database, DB_PATHS.settings()));
-        if (!settingsSnap.exists()) {
-          await set(ref(database, DB_PATHS.settings()), DEFAULT_SETTINGS);
-        }
+        const timeoutSettings = new Promise((_, reject) => setTimeout(() => reject(new Error("skip")), 1500));
+        await Promise.race([
+          get(ref(database, DB_PATHS.settings())).then(async (snap) => {
+            if (!snap.exists()) await set(ref(database, DB_PATHS.settings()), DEFAULT_SETTINGS);
+          }),
+          timeoutSettings
+        ]);
       } catch (e) {
-        console.warn("Settings init note:", e);
+        console.warn("Settings init note:", e.message);
       }
 
       showStatus("✅ Superuser successfully configured! Redirecting to Admin Dashboard...", "success");
@@ -189,7 +192,7 @@
 
       setTimeout(() => {
         window.location.href = "admin/dashboard.html";
-      }, 1500);
+      }, 1000);
 
     } catch (err) {
       console.error(err);

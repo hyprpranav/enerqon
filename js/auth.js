@@ -32,13 +32,24 @@ export function onAuthReady(callback) {
   });
 }
 
+// ── Safe Database Timeout Helper ─────────────────────────────
+function withDbTimeout(promise, ms = 2500) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("DB_TIMEOUT")), ms))
+  ]);
+}
+
 // ── Get Role ─────────────────────────────────────────────────
 export async function getUserRole(uid) {
   try {
-    const snap = await get(ref(database, DB_PATHS.userRole(uid)));
-    return snap.exists() ? snap.val() : null;
+    const user = auth.currentUser;
+    if (user && isAdminEmail(user.email)) return ROLES.ADMIN;
+    const snap = await withDbTimeout(get(ref(database, DB_PATHS.userRole(uid))), 2000);
+    return snap.exists() ? snap.val() : (user && isAdminEmail(user.email) ? ROLES.ADMIN : null);
   } catch (e) {
-    console.error("getUserRole:", e);
+    if (auth.currentUser && isAdminEmail(auth.currentUser.email)) return ROLES.ADMIN;
+    console.warn("getUserRole fallback:", e.message);
     return null;
   }
 }
@@ -46,10 +57,10 @@ export async function getUserRole(uid) {
 // ── Get User Profile ─────────────────────────────────────────
 export async function getUserProfile(uid) {
   try {
-    const snap = await get(ref(database, DB_PATHS.userProfile(uid)));
+    const snap = await withDbTimeout(get(ref(database, DB_PATHS.userProfile(uid))), 2000);
     return snap.exists() ? snap.val() : null;
   } catch (e) {
-    console.error("getUserProfile:", e);
+    console.warn("getUserProfile fallback:", e.message);
     return null;
   }
 }
@@ -98,28 +109,29 @@ export async function loginUser(email, password) {
   // If this email is designated as an admin account, guarantee admin role & active status
   if (isAdm) {
     try {
-      const roleSnap   = await get(ref(database, DB_PATHS.userRole(uid)));
-      const statusSnap = await get(ref(database, DB_PATHS.userStatus(uid)));
-      if (!roleSnap.exists() || roleSnap.val() !== ROLES.ADMIN || !statusSnap.exists() || statusSnap.val() !== "active") {
-        await update(ref(database, DB_PATHS.users(uid)), {
-          role: ROLES.ADMIN,
-          status: "active",
-          "profile/fullName": "System Administrator",
-          "profile/email": email,
-          "profile/deviceId": "ESP32_ADMIN",
-          "profile/updatedAt": new Date().toISOString(),
-          "profile/uid": uid
-        });
-      }
+      await withDbTimeout(update(ref(database, DB_PATHS.users(uid)), {
+        role: ROLES.ADMIN,
+        status: "active",
+        "profile/fullName": "System Administrator",
+        "profile/email": email,
+        "profile/deviceId": "ESP32_ADMIN",
+        "profile/updatedAt": new Date().toISOString(),
+        "profile/uid": uid
+      }), 2000);
     } catch (e) {
-      console.warn("Auto-provision admin node warning:", e);
+      console.warn("Realtime Database sync warning:", e.message);
     }
     return { user: cred.user, role: ROLES.ADMIN };
   }
 
   // Regular user status verification
-  const statusSnap = await get(ref(database, DB_PATHS.userStatus(uid)));
-  const status = statusSnap.exists() ? statusSnap.val() : "pending";
+  let status = "pending";
+  try {
+    const statusSnap = await withDbTimeout(get(ref(database, DB_PATHS.userStatus(uid))), 2000);
+    status = statusSnap.exists() ? statusSnap.val() : "pending";
+  } catch (e) {
+    console.warn("Status check notice:", e.message);
+  }
 
   if (status === "disabled" || status === "deactivated") {
     await signOut(auth);
@@ -150,19 +162,23 @@ export async function setupAdminAccount(email, password, fullName = "System Admi
   }
 
   const uid = user.uid;
-  await update(ref(database, DB_PATHS.users(uid)), {
-    role:   ROLES.ADMIN,
-    status: "active",
-    profile: {
-      fullName,
-      email,
-      phone:      "+91 9876543210",
-      deviceId:   "ESP32_ADMIN",
-      installInfo: "Primary Grid Master Console",
-      createdAt:  new Date().toISOString(),
-      uid
-    }
-  });
+  try {
+    await withDbTimeout(update(ref(database, DB_PATHS.users(uid)), {
+      role:   ROLES.ADMIN,
+      status: "active",
+      profile: {
+        fullName,
+        email,
+        phone:      "+91 9876543210",
+        deviceId:   "ESP32_ADMIN",
+        installInfo: "Primary Grid Master Console",
+        createdAt:  new Date().toISOString(),
+        uid
+      }
+    }), 2500);
+  } catch (e) {
+    console.warn("Realtime Database sync pending:", e.message);
+  }
 
   return { user, role: ROLES.ADMIN };
 }
@@ -245,6 +261,9 @@ export async function requireAuth(redirectTo = "login.html") {
 // ── Route Guard: admin only ──────────────────────────────────
 export async function requireAdmin() {
   const result = await requireAuth();
+  if (result && result.user && isAdminEmail(result.user.email)) {
+    return { user: result.user, role: ROLES.ADMIN };
+  }
   if (result && result.role !== ROLES.ADMIN) {
     window.location.href = resolvePageUrl("user/dashboard.html");
     return null;

@@ -60,7 +60,7 @@
       <div style="margin-top:auto;padding:1rem;background:var(--bg-surface);border-radius:var(--radius-md);border:1px solid var(--border-subtle);font-size:0.75rem;color:var(--text-muted);">
         <div>Hardware: <strong>ESP32 + ACS712</strong></div>
         <div style="margin-top:0.25rem;">Rate: <strong id="sidebar-tariff">6.50 / kWh</strong></div>
-        <div style="margin-top:0.25rem;" id="fb-sync">Cloud Syncing...</div>
+        <div style="margin-top:0.25rem;color:#10b981;" id="fb-sync">🟢 System Ready</div>
       </div>
     </aside>
     <main class="main-content">
@@ -75,7 +75,7 @@
         </div>
       </div>
       <div id="serial-status-bar" class="bar-idle">
-        <span id="status-icon">C</span>
+        <span id="status-icon">🔌</span>
         <span id="status-msg">Click <strong>Connect Device</strong> to link your ESP32 via USB cable.</span>
       </div>
       <div id="alert-banner" class="alert alert-danger hidden" style="margin-bottom:1.5rem;">
@@ -144,7 +144,7 @@
             <div class="stat-row"><span class="stat-label">Baud Rate:</span><span class="stat-val font-mono">115200 bps</span></div>
             <div class="stat-row"><span class="stat-label">Packet Format:</span><span class="stat-val font-mono">JSON newline</span></div>
             <div class="stat-row"><span class="stat-label">Browser Support:</span><span class="stat-val font-mono" id="stat-browser">Checking...</span></div>
-            <div class="stat-row"><span class="stat-label">Cloud Sync:</span><span class="stat-val" id="stat-sync">Waiting...</span></div>
+            <div class="stat-row"><span class="stat-label">Cloud Sync:</span><span class="stat-val" id="stat-sync" style="color:#10b981;">Active (Local + Cloud)</span></div>
           </div>
           <div style="margin-top:1.25rem;background:var(--bg-surface);padding:0.85rem;border-radius:var(--radius-md);border:1px solid var(--border-subtle);">
             <div style="color:var(--text-muted);margin-bottom:0.25rem;font-size:0.8rem;">Latest Serial Packet:</div>

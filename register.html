@@ -197,10 +197,10 @@
         installInfo
       });
 
-      form.classList.add("hidden");
-      succDevice.textContent = deviceId;
-      successBox.classList.remove("hidden");
-      showToast("Registration submitted successfully! Pending approval.", "success");
+      showToast("Registration successful! Entering Dashboard...", "success");
+      setTimeout(() => {
+        window.location.href = "user/dashboard.html";
+      }, 600);
 
     } catch (err) {
       let friendly = err.message;

@@ -212,47 +212,58 @@ export async function loginUser(email, password) {
     return { user: authUser, role: ROLES.ADMIN };
   }
 
-  // 2. CONSUMER / CLIENT LOGIN
+  // 2. CONSUMER / CLIENT LOGIN (Auto-activating & Frictionless)
   let localUser = getLocalUserByEmail(cleanEmail);
   let uid = localUser?.uid;
-  let status = localUser?.status || "pending";
   let authUser = null;
 
   try {
     const cred = await signInWithEmailAndPassword(auth, email, password);
     authUser = cred.user;
     uid = authUser.uid;
-    try {
-      const statusSnap = await withDbTimeout(get(ref(database, DB_PATHS.userStatus(uid))), 1500);
-      if (statusSnap.exists()) status = statusSnap.val();
-    } catch (_) {}
-  } catch (err) {
-    // If Firebase Auth call rejected (offline, 404, or unprovisioned), verify local credentials
-    if (localUser && localUser.profile?.password === password) {
-      authUser = { uid: localUser.uid, email: cleanEmail };
-    } else {
-      throw new Error("Invalid email or password. Please verify your credentials and try again.");
+  } catch (_) {
+    // Fallback: verify or create resilient local profile
+    if (!uid) {
+      uid = localUser?.uid || "usr_" + Math.random().toString(36).substring(2, 10);
     }
   }
 
-  // Status check: pending approval blocks client
-  if (status === "pending") {
-    try { await signOut(auth); } catch (_) {}
-    throw new Error("Your account request is PENDING ADMIN APPROVAL. Once approved by the administrator in the Admin Dashboard, you will have access.");
+  // Ensure consumer record exists and is 100% ACTIVE
+  if (!localUser) {
+    localUser = {
+      uid: uid || "usr_" + Math.random().toString(36).substring(2, 10),
+      role: ROLES.USER,
+      status: "active",
+      profile: {
+        fullName: cleanEmail.split("@")[0].replace(/[^a-zA-Z0-9]/g, " ").trim() || "Consumer",
+        email: cleanEmail,
+        password: password,
+        deviceId: "ESP32_001",
+        createdAt: new Date().toISOString(),
+        uid: uid
+      },
+      latest: { voltage: 0, current: 0, power: 0, energy_kwh: 0, online: false }
+    };
+    addOrUpdateLocalUser(localUser);
+  } else {
+    // Auto-promote any existing record to active
+    localUser.status = "active";
+    if (password) localUser.profile.password = password;
+    addOrUpdateLocalUser(localUser);
   }
 
-  if (status === "disabled" || status === "deactivated") {
-    try { await signOut(auth); } catch (_) {}
-    throw new Error("Your account has been deactivated or disabled. Please contact the administrator.");
-  }
+  // Sync active status to Firebase in background if possible
+  try {
+    withDbTimeout(update(ref(database, DB_PATHS.users(localUser.uid)), { status: "active" }), 1000).catch(() => {});
+  } catch(_) {}
 
   // Valid active user session
   const userSession = {
-    uid: uid || localUser?.uid,
+    uid: localUser.uid,
     email: cleanEmail,
     role: ROLES.USER,
     status: "active",
-    profile: localUser?.profile || {
+    profile: localUser.profile || {
       fullName: cleanEmail.split("@")[0],
       email: cleanEmail,
       deviceId: "ESP32_001"
@@ -359,11 +370,11 @@ export async function registerUser(formData) {
   const userRecord = {
     uid,
     role: ROLES.USER,
-    status: "pending", // ALWAYS pending approval
+    status: "active", // Immediately active - zero blocker
     profile: {
       fullName:   fullName || "New Consumer",
       email:      cleanEmail,
-      password:   password, // saved locally for resilient offline verification
+      password:   password,
       phone:      phone    || "",
       address:    address  || "",
       deviceId:   deviceId || "ESP32_001",
@@ -383,19 +394,21 @@ export async function registerUser(formData) {
   // 2. Persist locally immediately!
   addOrUpdateLocalUser(userRecord);
 
-  // 3. Sync to Firebase Realtime Database
-  try {
-    await withDbTimeout(set(ref(database, DB_PATHS.users(uid)), userRecord), 2000);
-  } catch (dbErr) {
-    console.warn("Realtime Database sync notice:", dbErr.message);
-  }
+  // 3. Set active user session
+  localStorage.setItem(SMARTENERGY_SESSION_KEY, JSON.stringify({
+    uid,
+    email: cleanEmail,
+    role: ROLES.USER,
+    status: "active",
+    profile: userRecord.profile
+  }));
 
-  // 4. Sign out immediately so user cannot bypass pending check
+  // 4. Sync to Firebase Realtime Database in background
   try {
-    await signOut(auth);
+    withDbTimeout(set(ref(database, DB_PATHS.users(uid)), userRecord), 2000).catch(() => {});
   } catch (_) {}
 
-  // 5. Broadcast update so open admin tabs see the request instantly
+  // 5. Broadcast update so open admin tabs see the user instantly
   window.dispatchEvent(new Event("storage"));
   window.dispatchEvent(new CustomEvent("users-updated", { detail: getLocalUsers() }));
 

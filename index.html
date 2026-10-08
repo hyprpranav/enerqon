@@ -8,13 +8,15 @@
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="css/dashboard.css" />
   <link rel="stylesheet" href="css/responsive.css" />
-  <style>
+    body.landing-page {
+      padding-top: 64px;
+    }
     .hero-section {
-      min-height: 88vh;
+      min-height: calc(100vh - 64px);
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 4rem 1.5rem;
+      padding: 3.5rem 1.5rem;
       background: radial-gradient(circle at 50% 20%, rgba(0, 212, 255, 0.08) 0%, rgba(10, 14, 26, 1) 70%);
       position: relative;
       overflow: hidden;
@@ -152,7 +154,7 @@
     }
   </style>
 </head>
-<body class="bg-base text-primary">
+<body class="bg-base text-primary landing-page">
 
   <!-- Navbar -->
   <header class="app-header">

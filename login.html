@@ -40,11 +40,8 @@
       </div>
     </div>
 
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
-      <button type="button" id="fill-admin-btn" class="btn-ghost" style="font-size:.82rem;padding:.25rem .5rem;background:none;border:none;color:var(--clr-accent-light);cursor:pointer;">
-        👑 Auto-Fill Admin
-      </button>
-      <button type="button" id="forgot-btn" class="btn-ghost" style="font-size:.82rem;padding:.25rem .5rem;background:none;border:none;color:var(--clr-primary);cursor:pointer;">
+    <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:1.25rem;">
+      <button type="button" id="forgot-btn" class="btn-ghost" style="font-size:.82rem;padding:.25rem 0;background:none;border:none;color:var(--clr-primary);cursor:pointer;">
         Forgot Password?
       </button>
     </div>
@@ -55,11 +52,8 @@
     </button>
   </form>
 
-  <div class="auth-footer" style="display:flex;flex-direction:column;gap:0.6rem;align-items:center;">
+  <div class="auth-footer">
     <div>Don't have an account? <a href="register.html">Request Access</a></div>
-    <div style="font-size:0.8rem;color:var(--text-muted);border-top:1px solid var(--border-subtle);padding-top:0.75rem;width:100%;text-align:center;">
-      👑 First time setup? <a href="admin-setup.html" style="color:var(--clr-accent-light);font-weight:600;">Initialize Admin Account</a>
-    </div>
   </div>
 </div>
 
@@ -102,12 +96,6 @@
     passwordEl.type = passwordEl.type === "password" ? "text" : "password";
   });
 
-  // Auto-fill admin credentials
-  document.getElementById("fill-admin-btn").addEventListener("click", () => {
-    emailEl.value = "projifyra@gmail.com";
-    passwordEl.value = "927624BME001";
-  });
-
   // Show error
   function showError(msg) {
     errText.textContent = msg;
@@ -138,7 +126,7 @@
     } catch (err) {
       let msg = err.message;
       if (err.message.includes("auth/") || err.code?.includes("auth/")) {
-        msg = "Invalid email or password. If you haven't initialized your Admin account yet, click 'Initialize Admin Account' below.";
+        msg = "Invalid email or password. Please verify your credentials and try again.";
       }
       showError(msg);
       loginBtn.disabled = false;

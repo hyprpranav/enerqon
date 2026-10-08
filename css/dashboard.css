@@ -1,14 +1,34 @@
-﻿/* ============================================================
+/* ============================================================
    SmartEnergy Monitor — Dashboard Layout  |  dashboard.css
    ============================================================ */
 
-/* ── App Shell ──────────────────────────────────────────────── */
-.app-shell {
+/* ── App Shell & Container ──────────────────────────────────── */
+.app-shell, .app-container {
   display: flex;
-  min-height: 100vh;
+  width: 100%;
+  min-height: calc(100vh - 64px);
+  margin-top: 64px;
 }
 
-/* ── Sidebar ────────────────────────────────────────────────── */
+/* ── Global Header (Fixed to Top, Unobstructed) ─────────────── */
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: rgba(10, 14, 26, 0.95);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.75rem;
+  z-index: 1000;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* ── Sidebar (Always positioned beneath the 64px header) ────── */
 .sidebar {
   width: var(--sidebar-width);
   background: var(--bg-surface);
@@ -16,12 +36,23 @@
   display: flex;
   flex-direction: column;
   position: fixed;
-  top: 0;
+  top: 64px;
   left: 0;
-  height: 100vh;
-  z-index: 100;
+  bottom: 0;
+  height: calc(100vh - 64px);
+  z-index: 900;
   transition: transform var(--transition-base);
   overflow-y: auto;
+  padding: 1.25rem 0.5rem;
+}
+
+.sidebar-section-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  padding: 0.75rem 1rem 0.35rem;
 }
 
 .sidebar-logo {
@@ -226,22 +257,109 @@
 .main-content {
   flex: 1;
   margin-left: var(--sidebar-width);
-  padding-top: var(--header-height);
-  min-height: 100vh;
+  padding: 2rem 2.5rem 4rem;
+  min-height: calc(100vh - 64px);
   background: var(--bg-base);
+  width: calc(100% - var(--sidebar-width));
+  overflow-x: hidden;
 }
 
 .content-area {
-  padding: var(--space-8) var(--space-8);
+  padding: 0;
   max-width: 1400px;
 }
 
-/* ── KPI Grid ───────────────────────────────────────────────── */
+/* ── KPI Grid & Stat Cards ──────────────────────────────────── */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: var(--space-4);
   margin-bottom: var(--space-8);
+  width: 100%;
+}
+
+.kpi-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 140px;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition-base);
+}
+
+.kpi-card:hover {
+  border-color: var(--border-primary);
+  box-shadow: var(--shadow-primary);
+  transform: translateY(-2px);
+}
+
+.kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.kpi-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.kpi-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.icon-volt   { background: rgba(0, 212, 255, 0.15); color: var(--clr-primary); }
+.icon-curr   { background: rgba(245, 158, 11, 0.15); color: var(--clr-warning); }
+.icon-power  { background: rgba(239, 68, 68, 0.15);  color: var(--clr-danger); }
+.icon-energy { background: rgba(16, 185, 129, 0.15); color: var(--clr-success); }
+.icon-cost   { background: rgba(124, 58, 237, 0.15); color: var(--clr-accent-light); }
+
+.kpi-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0.35rem 0 0.5rem;
+}
+
+.kpi-value {
+  font-size: 2.15rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.kpi-unit {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.kpi-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-top: auto;
+  font-size: 0.75rem;
 }
 
 /* ── Dashboard Grid ─────────────────────────────────────────── */
@@ -293,6 +411,83 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--clr-success);
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.chart-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.chart-metric-selector {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.metric-btn {
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.metric-btn:hover {
+  border-color: var(--clr-primary);
+  color: var(--clr-primary);
+}
+
+.metric-btn.active {
+  background: var(--clr-primary-glow);
+  border-color: var(--clr-primary);
+  color: var(--clr-primary);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.25);
+}
+
+/* ── Stats Table ────────────────────────────────────────────── */
+.stats-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.5rem;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.875rem;
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.stat-val {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.875rem;
 }
 
 /* ── Stats Row ──────────────────────────────────────────────── */
@@ -416,11 +611,13 @@
 .usage-period-value { margin-left: auto; font-family: var(--font-mono); font-size: 0.85rem; color: var(--clr-primary); font-weight: 700; }
 
 /* ── Admin User Cards ───────────────────────────────────────── */
+.user-cards-grid,
 .user-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: var(--space-5);
   margin-bottom: var(--space-8);
+  width: 100%;
 }
 
 .user-card {

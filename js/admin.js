@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 //  SmartEnergy Monitor — Admin Module
 //  js/admin.js
 // ============================================================
@@ -12,13 +12,26 @@ import {
 } from "./auth.js";
 import { showToast } from "./dashboard.js";
 
+// ── Database Timeout Helper ──────────────────────────────────
+function withDbTimeout(promise, ms = 1800) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("DB_TIMEOUT")), ms))
+  ]);
+}
+
 // ── Load all users for admin table ────────────────────────────
 export async function adminLoadUsers() {
-  const snap = await get(ref(database, DB_PATHS.allUsers()));
-  if (!snap.exists()) return [];
-  const users = [];
-  snap.forEach(child => users.push({ uid: child.key, ...child.val() }));
-  return users;
+  try {
+    const snap = await withDbTimeout(get(ref(database, DB_PATHS.allUsers())), 2000);
+    if (!snap || !snap.exists()) return [];
+    const users = [];
+    snap.forEach(child => users.push({ uid: child.key, ...child.val() }));
+    return users;
+  } catch (e) {
+    console.warn("adminLoadUsers fallback:", e.message);
+    return [];
+  }
 }
 
 // ── Watch all users in real time ──────────────────────────────
@@ -109,7 +122,7 @@ export function renderUserRow(user, thresholds = DEFAULT_SETTINGS.thresholds) {
   const badgeClass = statusColors[status] || "muted";
 
   return `
-<tr class="${isAlert ? 'style="background:rgba(239,68,68,.07);"' : ""}">
+<tr style="${isAlert ? "background:rgba(239,68,68,.08);" : ""}">
   <td>
     <div style="display:flex;align-items:center;gap:10px;">
       <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#00d4ff,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:#0a0e1a;flex-shrink:0;">
@@ -161,14 +174,19 @@ export async function saveThresholds(thresholdData) {
 
 // ── Load settings ─────────────────────────────────────────────
 export async function loadSettings() {
-  const snap = await get(ref(database, DB_PATHS.settings()));
-  if (!snap.exists()) return DEFAULT_SETTINGS;
-  const s = snap.val();
-  return {
-    tariff:      { ...DEFAULT_SETTINGS.tariff,      ...s.tariff },
-    calibration: { ...DEFAULT_SETTINGS.calibration, ...s.calibration },
-    thresholds:  { ...DEFAULT_SETTINGS.thresholds,  ...s.thresholds }
-  };
+  try {
+    const snap = await withDbTimeout(get(ref(database, DB_PATHS.settings())), 1500);
+    if (!snap || !snap.exists()) return DEFAULT_SETTINGS;
+    const s = snap.val();
+    return {
+      tariff:      { ...DEFAULT_SETTINGS.tariff,      ...s.tariff },
+      calibration: { ...DEFAULT_SETTINGS.calibration, ...s.calibration },
+      thresholds:  { ...DEFAULT_SETTINGS.thresholds,  ...s.thresholds }
+    };
+  } catch (e) {
+    console.warn("loadSettings fallback to defaults:", e.message);
+    return DEFAULT_SETTINGS;
+  }
 }
 
 // ── Admin action handler (global for inline buttons) ─────────

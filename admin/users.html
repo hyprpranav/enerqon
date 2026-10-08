@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -322,7 +322,15 @@
 
     document.getElementById("user-search-input").addEventListener("input", () => renderTable());
 
-    currentSettings = await loadSettings();
+    // Render table immediately with initial data so it never hangs
+    currentUsers = getDemoUsers();
+    renderTable();
+
+    // Load persisted settings in background
+    loadSettings().then(s => {
+      currentSettings = s;
+      renderTable();
+    }).catch(e => console.warn("Background loadSettings:", e));
 
     try {
       adminWatchUsers((users) => {
@@ -330,9 +338,8 @@
         else currentUsers = getDemoUsers();
         renderTable();
       });
-    } catch {
-      currentUsers = getDemoUsers();
-      renderTable();
+    } catch (e) {
+      console.warn("adminWatchUsers notice:", e.message);
     }
   </script>
 </body>

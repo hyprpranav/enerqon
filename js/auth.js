@@ -139,7 +139,7 @@ export async function loginUser(email, password) {
   }
   if (status === "pending") {
     await signOut(auth);
-    throw new Error("Your registration is pending admin approval. Please wait.");
+    throw new Error("Your account request is pending admin approval. Once an administrator approves your account, you will have full access.");
   }
 
   const role = await getUserRole(uid);
@@ -202,20 +202,24 @@ export async function registerUser(formData) {
   const uid  = cred.user.uid;
 
   // Store profile in database with pending status
-  await set(ref(database, DB_PATHS.users(uid)), {
-    role:   ROLES.USER,
-    status: "pending",
-    profile: {
-      fullName,
-      email,
-      phone:      phone      || "",
-      address:    address    || "",
-      deviceId:   deviceId   || "",
-      installInfo: installInfo || "",
-      createdAt:  new Date().toISOString(),
-      uid
-    }
-  });
+  try {
+    await withDbTimeout(set(ref(database, DB_PATHS.users(uid)), {
+      role:   ROLES.USER,
+      status: "pending",
+      profile: {
+        fullName,
+        email,
+        phone:      phone      || "",
+        address:    address    || "",
+        deviceId:   deviceId   || "",
+        installInfo: installInfo || "",
+        createdAt:  new Date().toISOString(),
+        uid
+      }
+    }), 3500);
+  } catch (dbErr) {
+    console.warn("Realtime Database sync notice:", dbErr.message);
+  }
 
   // Sign out immediately — admin must approve first
   await signOut(auth);

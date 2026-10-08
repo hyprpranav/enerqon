@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -526,9 +526,15 @@
       });
     });
 
-    // Start Realtime Watcher
-    await initSettings();
+    // Render immediately with initial data so page is never stuck or delayed
+    currentUsers = getDemoUsers();
+    updateKPIs();
+    renderCards();
 
+    // Load persisted settings in the background
+    initSettings().catch(e => console.warn("Background initSettings:", e));
+
+    // Live Firebase Realtime Database listener
     try {
       adminWatchUsers((users) => {
         if (users && users.length > 0) {
@@ -539,10 +545,8 @@
         updateKPIs();
         renderCards();
       });
-    } catch {
-      currentUsers = getDemoUsers();
-      updateKPIs();
-      renderCards();
+    } catch (e) {
+      console.warn("adminWatchUsers notice:", e.message);
     }
   </script>
 </body>

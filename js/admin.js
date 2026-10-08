@@ -16,6 +16,9 @@ import { showToast } from "./dashboard.js";
 
 export { ADMIN_DELETE_USERS_CODE };
 
+// Firebase path for global demo-cleared flag
+const FIREBASE_DEMO_CLEARED_PATH = "admin_flags/demo_cleared";
+
 // ── Database Timeout Helper ──────────────────────────────────
 function withDbTimeout(promise, ms = 1800) {
   return Promise.race([
@@ -68,9 +71,11 @@ export async function adminLoadUsers() {
   });
 
   // 2. Fetch from Firebase Realtime Database
+  let firebaseHasUsers = false;
   try {
-    const snap = await withDbTimeout(get(ref(database, DB_PATHS.allUsers())), 2000);
+    const snap = await withDbTimeout(get(ref(database, DB_PATHS.allUsers())), 2500);
     if (snap && snap.exists()) {
+      firebaseHasUsers = true;
       snap.forEach(child => {
         const val = child.val();
         if (val) {
@@ -86,9 +91,28 @@ export async function adminLoadUsers() {
 
   const users = Array.from(mergedMap.values());
 
-  // 3. Check demo clear flag: if demo was permanently cleared, never restore demo users
-  const isDemoCleared = localStorage.getItem(SMARTENERGY_DEMO_CLEARED_KEY) === "true";
-  if (users.length === 0 && !isDemoCleared) {
+  // 3. Check demo clear flag — check both localStorage AND Firebase so it works across devices/browsers
+  const localDemoCleared = localStorage.getItem(SMARTENERGY_DEMO_CLEARED_KEY) === "true";
+  let firebaseDemoCleared = false;
+  try {
+    const flagSnap = await withDbTimeout(get(ref(database, FIREBASE_DEMO_CLEARED_PATH)), 1500);
+    if (flagSnap && flagSnap.exists() && flagSnap.val() === true) {
+      firebaseDemoCleared = true;
+      // Sync to localStorage so future checks are instant
+      localStorage.setItem(SMARTENERGY_DEMO_CLEARED_KEY, "true");
+    }
+  } catch (_) {}
+
+  const isDemoCleared = localDemoCleared || firebaseDemoCleared;
+
+  // If Firebase is reachable and has real users, always use them (never show demo)
+  if (firebaseHasUsers) return users;
+
+  // If demo was permanently cleared, show empty list not demo
+  if (isDemoCleared) return users;
+
+  // No real users and demo not cleared → show demo placeholders
+  if (users.length === 0) {
     return getInitialDemoUsers();
   }
 
@@ -147,18 +171,25 @@ export function adminWatchUsers(callback) {
 
 // ── Delete All Users with Passcode Verification ──────────────
 export async function adminDeleteAllUsers() {
-  // 1. Wipe from Firebase RTDB
+  // 1. Wipe from Firebase RTDB users node
   try {
-    await withDbTimeout(remove(ref(database, DB_PATHS.allUsers())), 2000);
+    await withDbTimeout(remove(ref(database, DB_PATHS.allUsers())), 3000);
   } catch (e) {
     console.warn("Firebase users removal notice:", e.message);
   }
 
-  // 2. Wipe from localStorage and set permanent demo cleared flag
+  // 2. Set permanent global demo-cleared flag in Firebase (works across ALL devices/browsers)
+  try {
+    await withDbTimeout(set(ref(database, FIREBASE_DEMO_CLEARED_PATH), true), 2000);
+  } catch (e) {
+    console.warn("Firebase demo-cleared flag notice:", e.message);
+  }
+
+  // 3. Wipe from localStorage and set local demo cleared flag
   localStorage.removeItem(SMARTENERGY_USERS_KEY);
   localStorage.setItem(SMARTENERGY_DEMO_CLEARED_KEY, "true");
 
-  // 3. Dispatch sync events
+  // 4. Dispatch sync events
   window.dispatchEvent(new Event("storage"));
   window.dispatchEvent(new CustomEvent("users-updated", { detail: [] }));
 

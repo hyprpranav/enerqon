@@ -99,6 +99,21 @@
         </div>
       </div>
 
+      <!-- Serial Browser Support Warning Banner -->
+      <div id="serial-support-warning" class="hidden" style="display:none;margin-bottom:1.25rem;background:rgba(234,179,8,0.12);border:1px solid rgba(234,179,8,0.4);border-radius:var(--radius-md);padding:0.9rem 1.1rem;font-size:0.85rem;">
+        <div style="display:flex;align-items:flex-start;gap:0.75rem;">
+          <span style="font-size:1.3rem;flex-shrink:0;">⚠️</span>
+          <div>
+            <strong style="color:#f59e0b;">Web Serial API not supported in this browser.</strong><br/>
+            The <strong>🔌 Connect Device</strong> button requires <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> (version 89+).
+            Firefox and Safari do not support Web Serial.
+            <br/><span style="color:var(--text-muted);font-size:0.78rem;margin-top:0.25rem;display:block;">
+              Alternatively, use <strong>🎮 Demo Mode</strong> below to simulate live hardware data.
+            </span>
+          </div>
+        </div>
+      </div>
+
       <!-- Alert Banner -->
       <div id="alert-banner" class="alert alert-danger hidden" style="margin-bottom:1.5rem;">
         <span style="font-size:1.4rem;">⚠️</span>
@@ -402,6 +417,15 @@
 
     mgr.serial = serial;
 
+    // Show browser support warning if Web Serial not available
+    const supportWarning = document.getElementById("serial-support-warning");
+    if (!SerialManager.isSupported()) {
+      supportWarning.classList.remove("hidden");
+      supportWarning.style.display = "block";
+      connectBtn.title = "Web Serial API not supported — use Chrome or Edge";
+      connectBtn.style.opacity = "0.55";
+    }
+
     // Connect button click
     connectBtn.addEventListener("click", async () => {
       if (serial.isConnected) {
@@ -410,20 +434,20 @@
         connectBtn.disabled = false;
       } else {
         if (!SerialManager.isSupported()) {
-          showToast("Web Serial API is not supported in this browser. Please open this app in Google Chrome or Microsoft Edge.", "error", 6000);
+          showToast("❌ Web Serial API is NOT supported in this browser. Please open in Google Chrome or Microsoft Edge (desktop).", "error", 7000);
           return;
         }
 
         try {
           connectBtn.disabled = true;
           connectBtn.textContent = "⏳ Select Port...";
-          showToast("Please choose your ESP32 COM port from the browser dialog.", "info", 4000);
+          showToast("📋 A port picker dialog will appear — choose your ESP32 COM port from the list.", "info", 5000);
 
           const success = await serial.connect();
           if (success === false) {
             connectBtn.textContent = "🔌 Connect Device";
             connectBtn.disabled = false;
-            showToast("No serial port was selected.", "warning");
+            showToast("No serial port selected. Click Connect and choose your ESP32 COM port.", "warning");
           }
         } catch (err) {
           connectBtn.textContent = "🔌 Connect Device";

@@ -1,48 +1,42 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Live Energy Dashboard — SmartEnergy Monitor</title>
-  <meta name="description" content="Real-time AC voltage, current, power, energy, and cost telemetry dashboard." />
+  <title>Live Energy Dashboard - SmartEnergy Monitor</title>
   <link rel="stylesheet" href="../css/style.css" />
   <link rel="stylesheet" href="../css/dashboard.css" />
   <link rel="stylesheet" href="../css/responsive.css" />
-  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    #serial-status-bar { display:flex; align-items:center; gap:0.6rem; padding:0.65rem 1rem; border-radius:var(--radius-md); font-size:0.82rem; font-weight:600; margin-bottom:1.25rem; border:1px solid transparent; }
+    #serial-status-bar.bar-idle      { background:rgba(100,116,139,0.12); border-color:rgba(100,116,139,0.3); color:var(--text-secondary); }
+    #serial-status-bar.bar-connected { background:rgba(16,185,129,0.12);  border-color:rgba(16,185,129,0.4);  color:#10b981; }
+    #serial-status-bar.bar-warn      { background:rgba(234,179,8,0.12);   border-color:rgba(234,179,8,0.4);   color:#f59e0b; }
+    #serial-status-bar.bar-error     { background:rgba(239,68,68,0.12);   border-color:rgba(239,68,68,0.4);   color:var(--clr-danger); }
+    #serial-raw { font-size:0.72rem; word-break:break-all; color:var(--text-secondary); }
+    #connect-btn.state-connected { background:transparent; border:1px solid #10b981; color:#10b981; }
+  </style>
 </head>
 <body class="bg-base text-primary">
-
   <div class="sidebar-overlay" id="sidebar-overlay"></div>
-
-  <!-- App Header -->
   <header class="app-header">
     <div style="display:flex;align-items:center;gap:1rem;">
-      <button class="mobile-menu-btn" id="menu-toggle" aria-label="Toggle navigation">☰</button>
+      <button class="mobile-menu-btn" id="menu-toggle">menu</button>
       <div class="logo-area">
-        <div class="logo-icon">⚡</div>
+        <div class="logo-icon">Z</div>
         <div class="logo-text">Smart<span>Energy</span></div>
       </div>
     </div>
-
-    <!-- Status Indicators & Controls -->
     <div class="header-right">
       <div class="header-time" id="clock-display">--:--:--</div>
-
       <div class="status-indicator" style="background:var(--bg-surface);padding:0.4rem 0.85rem;border-radius:9999px;border:1px solid var(--border-subtle);">
         <span class="dot dot-danger" id="device-status-dot"></span>
         <span id="device-status-text" style="font-weight:600;font-size:0.8rem;">Offline</span>
       </div>
-
-      <button id="connect-serial-btn" class="btn btn-primary btn-sm" style="box-shadow:0 0 15px var(--clr-primary-glow);">
-        🔌 Connect Device
-      </button>
-
-      <button id="demo-toggle-btn" class="btn btn-outline btn-sm" title="Simulate AC sensor telemetry without hardware">
-        🎮 Demo Mode
-      </button>
-
-      <div class="user-pill" id="user-pill">
+      <button id="connect-btn" class="btn btn-primary btn-sm">Connect Device</button>
+      <button id="demo-btn" class="btn btn-outline btn-sm">Demo Mode</button>
+      <div class="user-pill">
         <div class="avatar" id="user-avatar">U</div>
         <div class="user-info">
           <div class="user-name" id="user-display-name">Loading...</div>
@@ -51,161 +45,78 @@
       </div>
     </div>
   </header>
-
   <div class="app-container">
-    <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-section-title">MONITORING</div>
       <nav class="nav-menu">
-        <a href="dashboard.html" class="nav-item active">
-          <span class="nav-icon">⚡</span>
-          <span>Live Telemetry</span>
-        </a>
-        <a href="history.html" class="nav-item">
-          <span class="nav-icon">📜</span>
-          <span>Reading History</span>
-        </a>
-        <a href="analytics.html" class="nav-item">
-          <span class="nav-icon">📊</span>
-          <span>Energy Analytics</span>
-        </a>
+        <a href="dashboard.html" class="nav-item active"><span class="nav-icon">Z</span><span>Live Telemetry</span></a>
+        <a href="history.html" class="nav-item"><span class="nav-icon">H</span><span>Reading History</span></a>
+        <a href="analytics.html" class="nav-item"><span class="nav-icon">A</span><span>Energy Analytics</span></a>
       </nav>
-
       <div class="sidebar-section-title" style="margin-top:2rem;">SYSTEM</div>
       <nav class="nav-menu">
-        <a href="../login.html" class="nav-item" id="logout-btn">
-          <span class="nav-icon">🚪</span>
-          <span>Sign Out</span>
-        </a>
+        <a href="../login.html" class="nav-item" id="logout-btn"><span class="nav-icon">X</span><span>Sign Out</span></a>
       </nav>
-
       <div style="margin-top:auto;padding:1rem;background:var(--bg-surface);border-radius:var(--radius-md);border:1px solid var(--border-subtle);font-size:0.75rem;color:var(--text-muted);">
         <div>Hardware: <strong>ESP32 + ACS712</strong></div>
-        <div style="margin-top:0.25rem;">Rate: <strong id="sidebar-tariff-rate">₹6.50 / kWh</strong></div>
+        <div style="margin-top:0.25rem;">Rate: <strong id="sidebar-tariff">6.50 / kWh</strong></div>
+        <div style="margin-top:0.25rem;" id="fb-sync">Cloud Syncing...</div>
       </div>
     </aside>
-
-    <!-- Main Content -->
     <main class="main-content">
-      <!-- Breadcrumb / Header Row -->
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
         <div>
           <h1 style="font-size:1.75rem;font-weight:700;margin-bottom:0.25rem;">Live AC Power Telemetry</h1>
-          <p style="color:var(--text-secondary);font-size:0.875rem;">Continuous real-time root-mean-square measurements from ESP32 unit</p>
+          <p style="color:var(--text-secondary);font-size:0.875rem;">Real-time readings from your ESP32 unit via USB</p>
         </div>
         <div style="display:flex;gap:0.5rem;align-items:center;">
           <span class="badge badge-info" id="port-info-badge">Port: Not Connected</span>
-          <span class="badge badge-muted" id="last-seen-badge">Last reading: <span id="last-reading-time">Never</span></span>
+          <span class="badge badge-muted">Packets: <span id="packets-count">0</span></span>
         </div>
       </div>
-
-      <!-- Serial Browser Support Warning Banner -->
-      <div id="serial-support-warning" class="hidden" style="display:none;margin-bottom:1.25rem;background:rgba(234,179,8,0.12);border:1px solid rgba(234,179,8,0.4);border-radius:var(--radius-md);padding:0.9rem 1.1rem;font-size:0.85rem;">
-        <div style="display:flex;align-items:flex-start;gap:0.75rem;">
-          <span style="font-size:1.3rem;flex-shrink:0;">⚠️</span>
-          <div>
-            <strong style="color:#f59e0b;">Web Serial API not supported in this browser.</strong><br/>
-            The <strong>🔌 Connect Device</strong> button requires <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> (version 89+).
-            Firefox and Safari do not support Web Serial.
-            <br/><span style="color:var(--text-muted);font-size:0.78rem;margin-top:0.25rem;display:block;">
-              Alternatively, use <strong>🎮 Demo Mode</strong> below to simulate live hardware data.
-            </span>
-          </div>
-        </div>
+      <div id="serial-status-bar" class="bar-idle">
+        <span id="status-icon">C</span>
+        <span id="status-msg">Click <strong>Connect Device</strong> to link your ESP32 via USB cable.</span>
       </div>
-
-      <!-- Alert Banner -->
       <div id="alert-banner" class="alert alert-danger hidden" style="margin-bottom:1.5rem;">
-        <span style="font-size:1.4rem;">⚠️</span>
+        <span style="font-size:1.4rem;">!</span>
         <div class="alert-banner-text">
           <strong style="color:var(--clr-danger);">Abnormal Load Warning!</strong>
-          <p style="margin:0;font-size:0.85rem;color:var(--text-primary);">Configured safety threshold exceeded.</p>
+          <p style="margin:0;font-size:0.85rem;" id="alert-msg">Safety threshold exceeded.</p>
         </div>
       </div>
-
-      <!-- Live KPI Cards Grid -->
       <div class="kpi-grid">
-        <!-- Voltage -->
         <div class="kpi-card">
-          <div class="kpi-header">
-            <span class="kpi-title">AC RMS Voltage</span>
-            <div class="kpi-icon icon-volt">⚡</div>
-          </div>
-          <div class="kpi-value-row">
-            <span class="kpi-value" id="kpi-voltage">0.0</span>
-            <span class="kpi-unit">V</span>
-          </div>
-          <div class="kpi-footer">
-            <span class="badge badge-success" id="kpi-volt-status">Normal (230V Nominal)</span>
-          </div>
+          <div class="kpi-header"><span class="kpi-title">AC RMS Voltage</span><div class="kpi-icon icon-volt">V</div></div>
+          <div class="kpi-value-row"><span class="kpi-value" id="kpi-voltage">0.0</span><span class="kpi-unit">V</span></div>
+          <div class="kpi-footer"><span class="badge badge-success" id="volt-status">Waiting for data</span></div>
         </div>
-
-        <!-- Current -->
         <div class="kpi-card">
-          <div class="kpi-header">
-            <span class="kpi-title">AC RMS Current</span>
-            <div class="kpi-icon icon-curr">🔌</div>
-          </div>
-          <div class="kpi-value-row">
-            <span class="kpi-value" id="kpi-current">0.00</span>
-            <span class="kpi-unit">A</span>
-          </div>
-          <div class="kpi-footer">
-            <span class="text-secondary" style="font-size:0.75rem;">ACS712-05B Sensor</span>
-          </div>
+          <div class="kpi-header"><span class="kpi-title">AC RMS Current</span><div class="kpi-icon icon-curr">A</div></div>
+          <div class="kpi-value-row"><span class="kpi-value" id="kpi-current">0.00</span><span class="kpi-unit">A</span></div>
+          <div class="kpi-footer"><span class="text-secondary" style="font-size:0.75rem;">ACS712 Sensor</span></div>
         </div>
-
-        <!-- Power -->
         <div class="kpi-card" style="border-color:rgba(0,212,255,0.25);">
-          <div class="kpi-header">
-            <span class="kpi-title">Active Real Power</span>
-            <div class="kpi-icon icon-power">💡</div>
-          </div>
-          <div class="kpi-value-row">
-            <span class="kpi-value text-primary-glow" id="kpi-power">0.0</span>
-            <span class="kpi-unit">W</span>
-          </div>
-          <div class="kpi-footer">
-            <span class="text-secondary" style="font-size:0.75rem;">P = Vrms × Irms × PF</span>
-          </div>
+          <div class="kpi-header"><span class="kpi-title">Active Power</span><div class="kpi-icon icon-power">W</div></div>
+          <div class="kpi-value-row"><span class="kpi-value text-primary-glow" id="kpi-power">0.0</span><span class="kpi-unit">W</span></div>
+          <div class="kpi-footer"><span class="text-secondary" style="font-size:0.75rem;">P = Vrms x Irms x PF</span></div>
         </div>
-
-        <!-- Accumulated Energy -->
         <div class="kpi-card">
-          <div class="kpi-header">
-            <span class="kpi-title">Accumulated Energy</span>
-            <div class="kpi-icon icon-energy">🔋</div>
-          </div>
-          <div class="kpi-value-row">
-            <span class="kpi-value" id="kpi-energy">0.000</span>
-            <span class="kpi-unit">kWh</span>
-          </div>
-          <div class="kpi-footer">
-            <span class="badge badge-primary">Units: kWh</span>
-          </div>
+          <div class="kpi-header"><span class="kpi-title">Accumulated Energy</span><div class="kpi-icon icon-energy">E</div></div>
+          <div class="kpi-value-row"><span class="kpi-value" id="kpi-energy">0.000</span><span class="kpi-unit">kWh</span></div>
+          <div class="kpi-footer"><span class="badge badge-primary">Units: kWh</span></div>
         </div>
-
-        <!-- Estimated Cost -->
         <div class="kpi-card">
-          <div class="kpi-header">
-            <span class="kpi-title">Estimated Cost</span>
-            <div class="kpi-icon icon-cost">💰</div>
-          </div>
-          <div class="kpi-value-row">
-            <span class="kpi-value" id="kpi-cost" style="color:var(--clr-warning);">₹0.00</span>
-          </div>
-          <div class="kpi-footer">
-            <span class="text-secondary" style="font-size:0.75rem;">@ Active Tariff Rate</span>
-          </div>
+          <div class="kpi-header"><span class="kpi-title">Estimated Cost</span><div class="kpi-icon icon-cost">Rs</div></div>
+          <div class="kpi-value-row"><span class="kpi-value" id="kpi-cost" style="color:var(--clr-warning);">Rs 0.00</span></div>
+          <div class="kpi-footer"><span class="text-secondary" style="font-size:0.75rem;">@ Active Tariff Rate</span></div>
         </div>
       </div>
-
-      <!-- Live Chart Section -->
       <div class="chart-card" style="margin-top:1.75rem;">
         <div class="chart-header">
           <div>
-            <h2 class="chart-title">Real-Time Waveform & Trend</h2>
-            <p style="font-size:0.8rem;color:var(--text-secondary);margin:0;">High-resolution streaming chart (last 60 data packets)</p>
+            <h2 class="chart-title">Real-Time Waveform</h2>
+            <p style="font-size:0.8rem;color:var(--text-secondary);margin:0;">Streaming live (last 60 readings)</p>
           </div>
           <div class="chart-metric-selector">
             <button class="metric-btn active" data-metric="power">Power (W)</button>
@@ -213,308 +124,302 @@
             <button class="metric-btn" data-metric="current">Current (A)</button>
           </div>
         </div>
-        <div style="height:320px;position:relative;width:100%;">
-          <canvas id="live-chart-canvas"></canvas>
-        </div>
+        <div style="height:300px;position:relative;"><canvas id="live-chart"></canvas></div>
       </div>
-
-      <!-- Bottom Stats & Diagnostics Grid -->
       <div class="grid grid-2" style="gap:1.5rem;margin-top:1.75rem;">
-        <!-- Today's Consumption Summary -->
         <div class="card">
-          <div class="card-header">
-            <h3 class="card-title">📅 Today's Consumption Summary</h3>
-            <span class="badge badge-info">Live Aggregate</span>
-          </div>
+          <div class="card-header"><h3 class="card-title">Session Summary</h3><span class="badge badge-info">Live</span></div>
           <div class="stats-table">
-            <div class="stat-row">
-              <span class="stat-label">Total Energy Today:</span>
-              <span class="stat-val" id="today-energy">0.000 kWh</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">Estimated Cost Today:</span>
-              <span class="stat-val" id="today-cost" style="color:var(--clr-warning);">₹0.00</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">Maximum Peak Power:</span>
-              <span class="stat-val" id="today-max">0 W</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">Minimum Power:</span>
-              <span class="stat-val" id="today-min">0 W</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">Highest Peak Load Hour:</span>
-              <span class="stat-val" id="today-peak">--:--</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">Lowest Consumption Hour:</span>
-              <span class="stat-val" id="today-low">--:--</span>
-            </div>
-          </div>
-          <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border-subtle);display:flex;justify-content:space-between;">
-            <a href="history.html" class="btn btn-outline btn-sm">View Full History →</a>
-            <a href="analytics.html" class="btn btn-ghost btn-sm">View Detailed Analytics →</a>
+            <div class="stat-row"><span class="stat-label">Max Power:</span><span class="stat-val font-mono" id="stat-max-power">0 W</span></div>
+            <div class="stat-row"><span class="stat-label">Min Power:</span><span class="stat-val font-mono" id="stat-min-power">0 W</span></div>
+            <div class="stat-row"><span class="stat-label">Total Energy:</span><span class="stat-val font-mono" id="stat-energy">0.000 kWh</span></div>
+            <div class="stat-row"><span class="stat-label">Estimated Cost:</span><span class="stat-val font-mono" id="stat-cost">Rs 0.00</span></div>
+            <div class="stat-row"><span class="stat-label">Packets received:</span><span class="stat-val font-mono" id="stat-packets">0</span></div>
           </div>
         </div>
-
-        <!-- Hardware & Serial Diagnostics -->
         <div class="card">
-          <div class="card-header">
-            <h3 class="card-title">📟 Hardware & Serial Sync Diagnostics</h3>
-            <span class="badge badge-primary" id="device-id-badge">ESP32_001</span>
-          </div>
+          <div class="card-header"><h3 class="card-title">Hardware Diagnostics</h3><span class="badge badge-primary" id="device-id-badge">ESP32_001</span></div>
           <div class="stats-table">
-            <div class="stat-row">
-              <span class="stat-label">Connection Protocol:</span>
-              <span class="stat-val">W3C USB Web Serial</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">Baud Rate:</span>
-              <span class="stat-val font-mono">115200 bps</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">Serial Packet Frame:</span>
-              <span class="stat-val font-mono">JSON (\n delimited)</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">Packets Received:</span>
-              <span class="stat-val font-mono" id="packets-count">0</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">Firebase Cloud Sync:</span>
-              <span class="stat-val" id="fb-sync-status"><span class="dot dot-success"></span> Synchronized</span>
-            </div>
+            <div class="stat-row"><span class="stat-label">Protocol:</span><span class="stat-val">W3C USB Web Serial</span></div>
+            <div class="stat-row"><span class="stat-label">Baud Rate:</span><span class="stat-val font-mono">115200 bps</span></div>
+            <div class="stat-row"><span class="stat-label">Packet Format:</span><span class="stat-val font-mono">JSON newline</span></div>
+            <div class="stat-row"><span class="stat-label">Browser Support:</span><span class="stat-val font-mono" id="stat-browser">Checking...</span></div>
+            <div class="stat-row"><span class="stat-label">Cloud Sync:</span><span class="stat-val" id="stat-sync">Waiting...</span></div>
           </div>
-
-          <div style="margin-top:1.25rem;background:var(--bg-surface);padding:0.85rem;border-radius:var(--radius-md);border:1px solid var(--border-subtle);font-size:0.8rem;">
-            <div style="color:var(--text-muted);margin-bottom:0.25rem;">Live Serial Stream Preview:</div>
-            <div id="serial-raw-preview" class="font-mono text-secondary" style="font-size:0.75rem;word-break:break-all;">
-              Waiting for incoming USB serial packets...
-            </div>
+          <div style="margin-top:1.25rem;background:var(--bg-surface);padding:0.85rem;border-radius:var(--radius-md);border:1px solid var(--border-subtle);">
+            <div style="color:var(--text-muted);margin-bottom:0.25rem;font-size:0.8rem;">Latest Serial Packet:</div>
+            <div id="serial-raw" class="font-mono">Waiting for USB data...</div>
           </div>
         </div>
       </div>
     </main>
   </div>
-
   <div id="toast-container"></div>
-
   <script type="module">
-    import { requireUser, logoutUser, currentUser } from "../js/auth.js";
-    import { DashboardManager, showToast, startClock } from "../js/dashboard.js";
-    import { SerialManager } from "../js/serial.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    // Start header clock
-    startClock(document.getElementById("clock-display"));
-    DashboardManager.setupSidebar();
+    const FB = { apiKey:"AIzaSyDGdIy8_j-6COJR82ivDui1DcFg7bzJyts", authDomain:"mechproj1.firebaseapp.com", databaseURL:"https://mechproj1-default-rtdb.firebaseio.com", projectId:"mechproj1", storageBucket:"mechproj1.firebasestorage.app", messagingSenderId:"601914312763", appId:"1:601914312763:web:d358497b497acc2835341e" };
+    const fbApp = initializeApp(FB);
+    const auth  = getAuth(fbApp);
+    const db    = getDatabase(fbApp);
 
-    // Check auth or URL demo flag
-    const urlParams = new URLSearchParams(window.location.search);
-    const isDemoModeRequested = urlParams.get("demo") === "true";
+    const SESSION_KEY = "smartenergy_current_user";
+    let userUid = "local_user", deviceId = "ESP32_001", tariffRate = 6.50;
 
-    let activeUser = null;
-    let uid = "demo_user";
-    let deviceId = "ESP32_001";
+    function el(id) { return document.getElementById(id); }
+    function setEl(id, v) { const e = el(id); if(e) e.textContent = v; }
+    function setHTML(id, v) { const e = el(id); if(e) e.innerHTML = v; }
 
-    try {
-      if (!isDemoModeRequested) {
-        activeUser = await requireUser();
-        if (activeUser) {
-          uid = activeUser.uid || activeUser.user?.uid || "client_user";
-          const p = activeUser.profile || {};
-          if (p.deviceId) deviceId = p.deviceId;
-          if (p.fullName) {
-            document.getElementById("user-display-name").textContent = p.fullName;
-            document.getElementById("user-avatar").textContent = p.fullName.substring(0, 1).toUpperCase();
-          } else if (activeUser.user?.email) {
-            document.getElementById("user-display-name").textContent = activeUser.user.email;
-            document.getElementById("user-avatar").textContent = activeUser.user.email.substring(0, 1).toUpperCase();
-          }
-        }
-      } else {
-        document.getElementById("user-display-name").textContent = "Demo Guest";
-        document.getElementById("user-avatar").textContent = "D";
-      }
-    } catch (e) {
-      console.warn("Auth check:", e);
-      document.getElementById("user-display-name").textContent = "Active Consumer";
+    function toast(msg, type, ms) {
+      ms = ms || 3500;
+      const c = el("toast-container"); if(!c) return;
+      const icons = {success:"OK",error:"ERR",warning:"WARN",info:"INFO"};
+      const d = document.createElement("div");
+      d.className = "toast toast-"+(type||"info");
+      d.innerHTML = "<span>"+(icons[type]||"i")+"</span><span>"+msg+"</span>";
+      c.appendChild(d);
+      setTimeout(function(){ d.remove(); }, ms);
     }
 
-    document.getElementById("user-device-badge").textContent = deviceId;
-    document.getElementById("device-id-badge").textContent = deviceId;
+    function setStatus(icon, msg, barClass) {
+      const bar = el("serial-status-bar");
+      if(bar){ bar.className = ""; bar.classList.add(barClass||"bar-idle"); }
+      setEl("status-icon", icon);
+      setHTML("status-msg", msg);
+    }
 
-    // Logout
-    document.getElementById("logout-btn").addEventListener("click", async (e) => {
+    // Clock
+    setInterval(function(){
+      const n = new Date();
+      setEl("clock-display", n.toLocaleString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",day:"2-digit",month:"short",year:"numeric"}));
+    }, 1000);
+
+    // Sidebar
+    const sidebar = el("sidebar"), overlay = el("sidebar-overlay");
+    el("menu-toggle").addEventListener("click", function(){ sidebar.classList.toggle("open"); overlay.classList.toggle("visible"); });
+    overlay.addEventListener("click", function(){ sidebar.classList.remove("open"); overlay.classList.remove("visible"); });
+
+    // Session
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if(raw) {
+        const s = JSON.parse(raw);
+        userUid  = s.uid || "local_user";
+        deviceId = (s.profile && s.profile.deviceId) || "ESP32_001";
+        const name = (s.profile && s.profile.fullName) || s.email || "User";
+        setEl("user-display-name", name);
+        setEl("user-avatar", name.charAt(0).toUpperCase());
+        setEl("user-device-badge", deviceId);
+        setEl("device-id-badge", deviceId);
+        if(s.role === "admin") { window.location.href = "../admin/dashboard.html"; }
+      }
+    } catch(e) { console.warn("Session:", e); }
+
+    el("logout-btn").addEventListener("click", async function(e){
       e.preventDefault();
-      await logoutUser();
+      localStorage.removeItem(SESSION_KEY);
+      try { await signOut(auth); } catch(_){}
       window.location.href = "../login.html";
     });
 
-    // Initialize Dashboard Manager
-    const mgr = new DashboardManager({ uid, deviceId });
-    await mgr.loadSettings();
+    try {
+      const snap = await get(ref(db, "settings/tariff"));
+      if(snap.exists()){ tariffRate = snap.val().ratePerUnit || 6.50; setEl("sidebar-tariff", "Rs "+tariffRate.toFixed(2)+" / kWh"); }
+    } catch(_){}
 
-    // Tariff label in sidebar
-    const tariffEl = document.getElementById("sidebar-tariff-rate");
-    if (tariffEl && mgr.settings?.tariff) {
-      tariffEl.textContent = `${mgr.settings.tariff.symbol || "₹"}${mgr.settings.tariff.ratePerUnit.toFixed(2)} / kWh`;
-    }
+    // Chart
+    let metric = "power";
+    const COLORS = {power:"#ef4444",voltage:"#00d4ff",current:"#f59e0b"};
+    const labels = [], data = [];
+    const ctx = el("live-chart").getContext("2d");
+    const chart = new Chart(ctx, {
+      type:"line",
+      data:{ labels:labels, datasets:[{ label:"Power (W)", data:data, borderColor:COLORS.power, backgroundColor:COLORS.power+"18", fill:true, tension:0.4, borderWidth:2, pointRadius:0 }] },
+      options:{ responsive:true, maintainAspectRatio:false, animation:{duration:0}, plugins:{legend:{display:false}},
+        scales:{ x:{ticks:{maxTicksLimit:8,color:"#94a3b8"},grid:{color:"rgba(255,255,255,0.05)"}}, y:{beginAtZero:true,ticks:{color:"#94a3b8"},grid:{color:"rgba(255,255,255,0.05)"}} } }
+    });
 
-    // Chart init
-    const canvas = document.getElementById("live-chart-canvas");
-    mgr.initChart(canvas);
-
-    // Metric buttons
-    const metricBtns = document.querySelectorAll(".metric-btn");
-    metricBtns.forEach(btn => {
-      btn.addEventListener("click", () => {
-        metricBtns.forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".metric-btn").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        document.querySelectorAll(".metric-btn").forEach(function(b){ b.classList.remove("active"); });
         btn.classList.add("active");
-        mgr.switchMetric(btn.dataset.metric);
+        metric = btn.dataset.metric;
+        chart.data.datasets[0].borderColor = COLORS[metric];
+        chart.data.datasets[0].backgroundColor = COLORS[metric]+"18";
+        chart.data.datasets[0].label = {power:"Power (W)",voltage:"Voltage (V)",current:"Current (A)"}[metric];
+        labels.length = 0; data.length = 0; chart.update();
       });
     });
 
-    // Serial Manager
-    let packetCount = 0;
-    const serialRawPreview = document.getElementById("serial-raw-preview");
-    const packetsCountEl = document.getElementById("packets-count");
-    const portInfoBadge = document.getElementById("port-info-badge");
-    const connectBtn = document.getElementById("connect-serial-btn");
+    // State
+    let accEnergy=0, lastEnergyMs=0, packetCount=0, maxP=0, minP=Infinity, lastSaveMs=0;
 
-    const serial = new SerialManager({
-      onConnect: () => {
-        showToast("ESP32 Connected via USB Web Serial!", "success");
-        connectBtn.disabled = false;
-        connectBtn.textContent = "🔌 Disconnect Device";
-        connectBtn.classList.replace("btn-primary", "btn-outline");
-        portInfoBadge.textContent = "Port: Connected (115200)";
-        portInfoBadge.className = "badge badge-success";
-        mgr.setDeviceStatus(true);
-      },
-      onDisconnect: (reason) => {
-        showToast(`Device Disconnected (${reason})`, "warning");
-        connectBtn.disabled = false;
-        connectBtn.textContent = "🔌 Connect Device";
-        connectBtn.classList.replace("btn-outline", "btn-primary");
-        portInfoBadge.textContent = "Port: Disconnected";
-        portInfoBadge.className = "badge badge-danger";
-        mgr.setDeviceStatus(false);
-      },
-      onData: (data) => {
-        packetCount++;
-        packetsCountEl.textContent = packetCount;
-        serialRawPreview.textContent = JSON.stringify(data);
-        mgr.handleSerialData(data);
-      },
-      onError: (err) => {
-        console.warn("Serial Warning:", err);
-      },
-      onTimeout: () => {
-        mgr.setDeviceStatus(false);
+    async function saveCloud(reading){
+      try {
+        await set(ref(db,"readings/"+userUid+"/"+deviceId+"/"+Date.now()), reading);
+        await set(ref(db,"devices/"+deviceId+"/latestReading"), Object.assign({},reading,{online:true}));
+        setEl("stat-sync","Synced to Cloud"); setEl("fb-sync","Cloud Synced");
+      } catch(e){ setEl("stat-sync","Sync failed"); }
+    }
+
+    function handleReading(d){
+      packetCount++;
+      const now = Date.now();
+      if(lastEnergyMs > 0){ accEnergy += (d.power||0) * (now - lastEnergyMs) / 3600000000; }
+      lastEnergyMs = now;
+      const cost = accEnergy * tariffRate;
+
+      setEl("kpi-voltage", d.voltage > 0 ? d.voltage.toFixed(1) : "0.0");
+      setEl("kpi-current", d.current > 0 ? d.current.toFixed(2) : "0.00");
+      setEl("kpi-power",   d.power   > 0 ? d.power.toFixed(1)   : "0.0");
+      setEl("kpi-energy",  accEnergy.toFixed(4));
+      setEl("kpi-cost",    "Rs "+cost.toFixed(2));
+
+      const vs = el("volt-status");
+      if(vs){ if(d.voltage<=0){vs.textContent="No signal";vs.className="badge badge-muted";}
+              else if(d.voltage<180||d.voltage>270){vs.textContent="Out of Range";vs.className="badge badge-danger";}
+              else{vs.textContent="Normal 230V";vs.className="badge badge-success";} }
+
+      if(d.power > maxP) maxP = d.power;
+      if(d.power < minP) minP = d.power;
+      setEl("stat-max-power", maxP.toFixed(0)+" W");
+      setEl("stat-min-power", (minP===Infinity?0:minP).toFixed(0)+" W");
+      setEl("stat-energy", accEnergy.toFixed(4)+" kWh");
+      setEl("stat-cost", "Rs "+cost.toFixed(2));
+      setEl("stat-packets", packetCount);
+      setEl("packets-count", packetCount);
+      setEl("serial-raw", JSON.stringify(d));
+
+      const val = metric==="voltage"?d.voltage:metric==="current"?d.current:d.power;
+      const t = new Date().toLocaleTimeString("en-IN",{hour12:false,hour:"2-digit",minute:"2-digit",second:"2-digit"});
+      labels.push(t); data.push(val);
+      if(labels.length>60){ labels.shift(); data.shift(); }
+      chart.update("none");
+
+      const overload = d.power>3000||d.current>13;
+      const ab = el("alert-banner");
+      if(ab){ if(overload){ab.classList.remove("hidden");setEl("alert-msg","Power:"+d.power.toFixed(0)+"W / Current:"+d.current.toFixed(2)+"A EXCEEDS LIMIT");}else{ab.classList.add("hidden");} }
+
+      el("device-status-dot").className = "dot dot-success pulse";
+      setEl("device-status-text","Connected");
+
+      if(now - lastSaveMs >= 30000){ lastSaveMs=now; saveCloud({voltage:d.voltage,current:d.current,power:d.power,energy_kwh:accEnergy,estimated_cost:cost,timestamp:new Date().toISOString(),device_id:deviceId}); }
+    }
+
+    // Browser check
+    const supported = ("serial" in navigator);
+    setEl("stat-browser", supported ? "Chrome/Edge - Web Serial OK" : "NOT Chrome/Edge - Serial NOT supported");
+
+    if(!supported){
+      setStatus("!", "<strong style='color:#f59e0b;'>Your browser does NOT support Web Serial.</strong> Please open in <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> (desktop). Use Demo Mode to test.", "bar-warn");
+      el("connect-btn").disabled = true;
+      el("connect-btn").style.opacity = "0.4";
+    } else {
+      setStatus("C","Click <strong>Connect Device</strong> - a port picker dialog will appear. Select your <strong>ESP32 COM port</strong>.","bar-idle");
+    }
+
+    // Serial state
+    let port=null, reader=null, connected=false;
+    const btn = el("connect-btn");
+
+    btn.addEventListener("click", async function(){
+      if(connected){ await doDisconnect("Manual disconnect"); return; }
+      if(!supported){ toast("Web Serial not supported - use Chrome or Edge","error",6000); return; }
+      try {
+        btn.disabled=true; btn.className="btn btn-sm"; btn.textContent="Selecting port...";
+        setStatus("...","A port picker dialog is opening above - select your ESP32 COM port.","bar-idle");
+        port = await navigator.serial.requestPort();
+        btn.textContent = "Opening port...";
+        await port.open({baudRate:115200,dataBits:8,stopBits:1,parity:"none",bufferSize:4096});
+        connected=true;
+        btn.disabled=false; btn.className="btn btn-sm state-connected"; btn.textContent="Disconnect";
+        const info = port.getInfo();
+        const lbl = (info && info.usbProductId) ? "USB("+info.usbVendorId+":"+info.usbProductId+")" : "Serial Port";
+        el("port-info-badge").textContent = "Port: "+lbl+" @ 115200";
+        el("port-info-badge").className = "badge badge-success";
+        setStatus("OK","ESP32 connected on <strong>"+lbl+"</strong>. Receiving live telemetry...","bar-connected");
+        toast("ESP32 connected via USB!","success");
+        navigator.serial.addEventListener("disconnect", function(e){ if(e.target===port) doDisconnect("USB cable disconnected"); });
+        startReading();
+      } catch(err){
+        btn.disabled=false; btn.className="btn btn-primary btn-sm"; btn.textContent="Connect Device";
+        if(err.name==="NotFoundError"){
+          setStatus("C","No port selected. Click <strong>Connect Device</strong> again and choose your ESP32 COM port.","bar-idle");
+          toast("No port selected.","warning");
+        } else if(err.message&&(err.message.includes("in use")||err.message.includes("Access denied"))||err.name==="NetworkError"){
+          setStatus("!","<strong>Port is busy!</strong> Close Arduino IDE Serial Monitor first, then try again.","bar-error");
+          toast("Port is locked - close Arduino IDE Serial Monitor first.","error",7000);
+        } else {
+          setStatus("X","Error: "+err.message,"bar-error");
+          toast("Serial error: "+err.message,"error",6000);
+        }
       }
     });
 
-    mgr.serial = serial;
-
-    // Show browser support warning if Web Serial not available
-    const supportWarning = document.getElementById("serial-support-warning");
-    if (!SerialManager.isSupported()) {
-      supportWarning.classList.remove("hidden");
-      supportWarning.style.display = "block";
-      connectBtn.title = "Web Serial API not supported — use Chrome or Edge";
-      connectBtn.style.opacity = "0.55";
-    }
-
-    // Connect button click
-    connectBtn.addEventListener("click", async () => {
-      if (serial.isConnected) {
-        connectBtn.disabled = true;
-        await serial.disconnect();
-        connectBtn.disabled = false;
-      } else {
-        if (!SerialManager.isSupported()) {
-          showToast("❌ Web Serial API is NOT supported in this browser. Please open in Google Chrome or Microsoft Edge (desktop).", "error", 7000);
-          return;
-        }
-
+    async function startReading(){
+      const dec = new TextDecoder(); let buf="";
+      while(port && port.readable && connected){
+        reader = port.readable.getReader();
         try {
-          connectBtn.disabled = true;
-          connectBtn.textContent = "⏳ Select Port...";
-          showToast("📋 A port picker dialog will appear — choose your ESP32 COM port from the list.", "info", 5000);
-
-          const success = await serial.connect();
-          if (success === false) {
-            connectBtn.textContent = "🔌 Connect Device";
-            connectBtn.disabled = false;
-            showToast("No serial port selected. Click Connect and choose your ESP32 COM port.", "warning");
+          while(true){
+            const {value, done} = await reader.read();
+            if(done) break;
+            if(value){
+              buf += dec.decode(value,{stream:true});
+              const lines = buf.split("\n"); buf = lines.pop();
+              for(const line of lines){
+                const t=line.trim(); if(!t) continue;
+                try {
+                  const s=t.indexOf("{"), e=t.lastIndexOf("}");
+                  if(s>=0&&e>s){
+                    const d=JSON.parse(t.substring(s,e+1));
+                    if(typeof d.voltage==="number"&&typeof d.current==="number") handleReading(d);
+                  }
+                } catch(_){}
+              }
+            }
           }
-        } catch (err) {
-          connectBtn.textContent = "🔌 Connect Device";
-          connectBtn.disabled = false;
-          showToast(err.message, "error", 7000);
-        }
+        } catch(e){ if(connected) console.warn("Read:",e.message); }
+        finally { try{ reader.releaseLock(); }catch(_){} reader=null; }
       }
+    }
+
+    async function doDisconnect(reason){
+      connected=false;
+      if(reader){ try{await reader.cancel();}catch(_){} try{reader.releaseLock();}catch(_){} reader=null; }
+      if(port){ try{await port.close();}catch(_){} port=null; }
+      btn.disabled=false; btn.className="btn btn-primary btn-sm"; btn.textContent="Connect Device";
+      el("port-info-badge").textContent="Port: Disconnected"; el("port-info-badge").className="badge badge-danger";
+      el("device-status-dot").className="dot dot-danger"; setEl("device-status-text","Offline");
+      setStatus("C","Disconnected ("+reason+"). Click <strong>Connect Device</strong> to reconnect.","bar-idle");
+      toast("Disconnected: "+reason,"warning");
+    }
+
+    // Demo mode
+    let demoInt=null, demoOn=false;
+    el("demo-btn").addEventListener("click", function(){
+      if(demoOn){
+        clearInterval(demoInt); demoOn=false;
+        el("demo-btn").textContent="Demo Mode";
+        setStatus("C","Demo stopped. Click Connect Device to use real hardware.","bar-idle");
+        el("device-status-dot").className="dot dot-danger"; setEl("device-status-text","Offline");
+        toast("Demo stopped","info"); return;
+      }
+      demoOn=true; el("demo-btn").textContent="Stop Demo";
+      setStatus("D","Demo simulation active - generating synthetic AC waveform data.","bar-connected");
+      el("port-info-badge").textContent="Mode: Simulated"; el("port-info-badge").className="badge badge-info";
+      toast("Demo Mode active - simulating ESP32 live data","success");
+      demoInt = setInterval(function(){
+        const v=Math.round((230+Math.sin(Date.now()/5000)*4+(Math.random()*1.5-0.75))*10)/10;
+        const i=Math.max(0.05,Math.round((1.8+Math.sin(Date.now()/7000)*0.4+(Math.random()*0.15-0.075))*100)/100);
+        const p=Math.round(v*i*0.98*10)/10;
+        handleReading({device_id:deviceId,voltage:v,current:i,power:p,energy_kwh:0,estimated_cost:0,timestamp:new Date().toISOString()});
+      }, 1000);
     });
 
-    // Interactive Demo / Simulator Mode
-    let demoInterval = null;
-    let isDemoRunning = false;
-    let simAccumulatedEnergy = 2.450;
-    const demoBtn = document.getElementById("demo-toggle-btn");
-
-    function toggleDemoMode(forceStart = false) {
-      if (isDemoRunning && !forceStart) {
-        clearInterval(demoInterval);
-        demoInterval = null;
-        isDemoRunning = false;
-        demoBtn.textContent = "🎮 Demo Mode";
-        demoBtn.classList.remove("btn-primary");
-        mgr.setDeviceStatus(false);
-        showToast("Demo simulation stopped", "info");
-      } else {
-        isDemoRunning = true;
-        demoBtn.textContent = "⏹ Stop Demo";
-        demoBtn.classList.add("btn-primary");
-        portInfoBadge.textContent = "Mode: Simulated Hardware";
-        portInfoBadge.className = "badge badge-info";
-        mgr.setDeviceStatus(true);
-        showToast("Demo Simulation Active — generating AC waveforms", "success");
-
-        demoInterval = setInterval(() => {
-          // Realistic AC fluctuations
-          const baseV = 230 + (Math.sin(Date.now() / 5000) * 4) + (Math.random() * 1.5 - 0.75);
-          const baseI = 1.80 + (Math.sin(Date.now() / 7000) * 0.4) + (Math.random() * 0.15 - 0.075);
-          const v = Math.round(baseV * 10) / 10;
-          const i = Math.max(0.05, Math.round(baseI * 100) / 100);
-          const p = Math.round(v * i * 0.98 * 10) / 10;
-
-          simAccumulatedEnergy += (p * 1) / 3600000;
-          const cost = Math.round(simAccumulatedEnergy * 6.50 * 100) / 100;
-
-          const packet = {
-            device_id: deviceId,
-            voltage: v,
-            current: i,
-            power: p,
-            energy_kwh: Math.round(simAccumulatedEnergy * 1000) / 1000,
-            estimated_cost: cost,
-            timestamp: new Date().toISOString()
-          };
-
-          packetCount++;
-          packetsCountEl.textContent = packetCount;
-          serialRawPreview.textContent = JSON.stringify(packet);
-          mgr.handleSerialData(packet);
-        }, 1000);
-      }
-    }
-
-    demoBtn.addEventListener("click", () => toggleDemoMode());
-
-    if (isDemoModeRequested) {
-      toggleDemoMode(true);
-    }
+    if(new URLSearchParams(window.location.search).get("demo")==="true"){ el("demo-btn").click(); }
   </script>
 </body>
 </html>

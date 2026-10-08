@@ -27,34 +27,9 @@ function withDbTimeout(promise, ms = 1800) {
   ]);
 }
 
-// ── Initial Mock Demo Users (shown only before explicit delete) ──
+// ── Initial Mock Demo Users (Disabled - clean real data only) ──
 export function getInitialDemoUsers() {
-  return [
-    {
-      uid: "demo_user_1",
-      status: "active",
-      profile: { fullName: "Rajesh Kumar", email: "rajesh@example.com", deviceId: "ESP32_001", phone: "9876543210" },
-      latest: { voltage: 231.2, current: 2.14, power: 492.3, energy_kwh: 4.25, online: true }
-    },
-    {
-      uid: "demo_user_2",
-      status: "active",
-      profile: { fullName: "Priya Sharma", email: "priya@example.com", deviceId: "ESP32_002", phone: "9876543211" },
-      latest: { voltage: 228.4, current: 14.80, power: 3380.0, energy_kwh: 8.92, online: true }
-    },
-    {
-      uid: "demo_user_3",
-      status: "pending",
-      profile: { fullName: "Vikram Singh", email: "vikram@example.com", deviceId: "ESP32_003", phone: "9876543212" },
-      latest: { voltage: 0, current: 0, power: 0, energy_kwh: 0, online: false }
-    },
-    {
-      uid: "demo_user_4",
-      status: "active",
-      profile: { fullName: "Ananya Patel", email: "ananya@example.com", deviceId: "ESP32_004", phone: "9876543213" },
-      latest: { voltage: 230.1, current: 0.85, power: 195.6, energy_kwh: 1.84, online: false }
-    }
-  ];
+  return [];
 }
 
 // ── Load all users (Cloud + Local Resilient Merge) ────────────
@@ -104,17 +79,6 @@ export async function adminLoadUsers() {
   } catch (_) {}
 
   const isDemoCleared = localDemoCleared || firebaseDemoCleared;
-
-  // If Firebase is reachable and has real users, always use them (never show demo)
-  if (firebaseHasUsers) return users;
-
-  // If demo was permanently cleared, show empty list not demo
-  if (isDemoCleared) return users;
-
-  // No real users and demo not cleared → show demo placeholders
-  if (users.length === 0) {
-    return getInitialDemoUsers();
-  }
 
   return users;
 }

@@ -47,6 +47,10 @@
         ⚖️ Calibration
       </button>
 
+      <button id="header-delete-all-btn" class="btn btn-danger btn-sm" style="display:inline-flex;align-items:center;gap:6px;box-shadow:0 0 12px rgba(239,68,68,0.3);">
+        <span>🗑️</span> Delete All Users
+      </button>
+
       <div class="user-pill">
         <div class="avatar" style="background:var(--clr-accent);">A</div>
         <div class="user-info">
@@ -81,6 +85,10 @@
         <a href="#" class="nav-item" id="sidebar-cal-link">
           <span class="nav-icon">⚖️</span>
           <span>Sensor Calibration</span>
+        </a>
+        <a href="#" class="nav-item" id="sidebar-delete-users-link" style="color:var(--clr-danger);">
+          <span class="nav-icon">🗑️</span>
+          <span>Delete All Users</span>
         </a>
         <a href="../user/dashboard.html" class="nav-item" style="color:var(--clr-primary);">
           <span class="nav-icon">🔌</span>
@@ -544,23 +552,29 @@
     });
 
     // Modal controls for Delete All Users
-    const deleteModal     = document.getElementById("delete-users-modal");
-    const openDeleteBtn   = document.getElementById("delete-all-users-btn");
-    const closeDeleteBtn  = document.getElementById("close-delete-modal");
-    const cancelDeleteBtn = document.getElementById("cancel-delete-btn");
-    const deleteForm      = document.getElementById("delete-users-form");
-    const codeInput       = document.getElementById("security-passcode-input");
-    const errorHint       = document.getElementById("delete-error-hint");
+    const deleteModal      = document.getElementById("delete-users-modal");
+    const openDeleteBtn    = document.getElementById("delete-all-users-btn");
+    const headerDeleteBtn  = document.getElementById("header-delete-all-btn");
+    const sidebarDeleteBtn = document.getElementById("sidebar-delete-users-link");
+    const closeDeleteBtn   = document.getElementById("close-delete-modal");
+    const cancelDeleteBtn  = document.getElementById("cancel-delete-btn");
+    const deleteForm       = document.getElementById("delete-users-form");
+    const codeInput        = document.getElementById("security-passcode-input");
+    const errorHint        = document.getElementById("delete-error-hint");
 
-    openDeleteBtn.addEventListener("click", () => {
+    function openDeleteModal() {
       deleteForm.reset();
       errorHint.classList.add("hidden");
       deleteModal.classList.remove("hidden");
       setTimeout(() => codeInput.focus(), 100);
-    });
-    closeDeleteBtn.addEventListener("click", () => deleteModal.classList.add("hidden"));
-    cancelDeleteBtn.addEventListener("click", () => deleteModal.classList.add("hidden"));
-    deleteModal.addEventListener("click", (e) => { if (e.target === deleteModal) deleteModal.classList.add("hidden"); });
+    }
+
+    if (openDeleteBtn) openDeleteBtn.addEventListener("click", openDeleteModal);
+    if (headerDeleteBtn) headerDeleteBtn.addEventListener("click", openDeleteModal);
+    if (sidebarDeleteBtn) sidebarDeleteBtn.addEventListener("click", (e) => { e.preventDefault(); openDeleteModal(); });
+    if (closeDeleteBtn) closeDeleteBtn.addEventListener("click", () => deleteModal.classList.add("hidden"));
+    if (cancelDeleteBtn) cancelDeleteBtn.addEventListener("click", () => deleteModal.classList.add("hidden"));
+    if (deleteModal) deleteModal.addEventListener("click", (e) => { if (e.target === deleteModal) deleteModal.classList.add("hidden"); });
 
     deleteForm.addEventListener("submit", async (e) => {
       e.preventDefault();

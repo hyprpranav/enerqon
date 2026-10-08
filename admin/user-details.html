@@ -236,25 +236,24 @@
       }
 
       if (!userData) {
-        // Fallback demo user
         userData = {
           uid: uid,
-          status: "active",
+          status: "pending",
           profile: {
-            fullName: "Rajesh Kumar",
-            email: "rajesh@example.com",
-            phone: "+91 98765 43210",
-            address: "House 42, Green Avenue, Sector 5",
+            fullName: "Consumer (" + (uid.length > 8 ? uid.substring(0, 8) : uid) + ")",
+            email: "Not provided",
+            phone: "—",
+            address: "—",
             deviceId: "ESP32_001",
-            createdAt: "2026-10-01T10:00:00Z"
+            createdAt: new Date().toISOString()
           },
           latest: {
-            voltage: 231.2,
-            current: 2.14,
-            power: 492.3,
-            energy_kwh: 4.25,
-            estimated_cost: 27.63,
-            online: true
+            voltage: 0,
+            current: 0,
+            power: 0,
+            energy_kwh: 0,
+            estimated_cost: 0,
+            online: false
           }
         };
       }

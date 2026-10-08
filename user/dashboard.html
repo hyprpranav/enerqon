@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -160,10 +160,24 @@
     import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-    const FB = { apiKey:"AIzaSyDGdIy8_j-6COJR82ivDui1DcFg7bzJyts", authDomain:"mechproj1.firebaseapp.com", databaseURL:"https://mechproj1-default-rtdb.firebaseio.com", projectId:"mechproj1", storageBucket:"mechproj1.firebasestorage.app", messagingSenderId:"601914312763", appId:"1:601914312763:web:d358497b497acc2835341e" };
-    const fbApp = initializeApp(FB);
-    const auth  = getAuth(fbApp);
-    const db    = getDatabase(fbApp);
+    const FB = {
+      apiKey: "AIzaSyDGdIy8_j-6COJR82ivDui1DcFg7bzJyts",
+      authDomain: "mechproj1.firebaseapp.com",
+      databaseURL: "https://mechproj1-default-rtdb.firebaseio.com",
+      projectId: "mechproj1",
+      storageBucket: "mechproj1.firebasestorage.app",
+      messagingSenderId: "601914312763",
+      appId: "1:601914312763:web:d358497b497acc2835341e"
+    };
+
+    let fbApp = null, auth = null, db = null;
+    try {
+      fbApp = initializeApp(FB);
+      auth  = getAuth(fbApp);
+      db    = getDatabase(fbApp);
+    } catch(err) {
+      console.warn("Firebase initialization warning:", err.message);
+    }
 
     const SESSION_KEY = "smartenergy_current_user";
     let userUid = "local_user", deviceId = "ESP32_001", tariffRate = 6.50;
@@ -175,99 +189,137 @@
     function toast(msg, type, ms) {
       ms = ms || 3500;
       const c = el("toast-container"); if(!c) return;
-      const icons = {success:"OK",error:"ERR",warning:"WARN",info:"INFO"};
+      const icons = { success:"✅", error:"❌", warning:"⚠️", info:"ℹ️" };
       const d = document.createElement("div");
-      d.className = "toast toast-"+(type||"info");
-      d.innerHTML = "<span>"+(icons[type]||"i")+"</span><span>"+msg+"</span>";
+      d.className = "toast toast-" + (type || "info");
+      d.innerHTML = `<span style="font-size:1.1rem;">${icons[type] || "ℹ️"}</span><span>${msg}</span>`;
       c.appendChild(d);
-      setTimeout(function(){ d.remove(); }, ms);
+      setTimeout(() => { d.remove(); }, ms);
     }
 
     function setStatus(icon, msg, barClass) {
       const bar = el("serial-status-bar");
-      if(bar){ bar.className = ""; bar.classList.add(barClass||"bar-idle"); }
+      if(bar){ bar.className = ""; bar.classList.add(barClass || "bar-idle"); }
       setEl("status-icon", icon);
       setHTML("status-msg", msg);
     }
 
-    // Clock
-    setInterval(function(){
+    // ── 1. CLOCK (Synchronous) ──
+    setInterval(() => {
       const n = new Date();
-      setEl("clock-display", n.toLocaleString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",day:"2-digit",month:"short",year:"numeric"}));
+      setEl("clock-display", n.toLocaleString("en-IN", { hour:"2-digit", minute:"2-digit", second:"2-digit", day:"2-digit", month:"short", year:"numeric" }));
     }, 1000);
 
-    // Sidebar
+    // ── 2. SIDEBAR TOGGLE (Synchronous) ──
     const sidebar = el("sidebar"), overlay = el("sidebar-overlay");
-    el("menu-toggle").addEventListener("click", function(){ sidebar.classList.toggle("open"); overlay.classList.toggle("visible"); });
-    overlay.addEventListener("click", function(){ sidebar.classList.remove("open"); overlay.classList.remove("visible"); });
+    if(el("menu-toggle")) {
+      el("menu-toggle").addEventListener("click", () => { sidebar.classList.toggle("open"); overlay.classList.toggle("visible"); });
+    }
+    if(overlay) {
+      overlay.addEventListener("click", () => { sidebar.classList.remove("open"); overlay.classList.remove("visible"); });
+    }
 
-    // Session
+    // ── 3. USER SESSION & RESTORATION (Instant) ──
     try {
       const raw = localStorage.getItem(SESSION_KEY);
       if(raw) {
         const s = JSON.parse(raw);
         userUid  = s.uid || "local_user";
         deviceId = (s.profile && s.profile.deviceId) || "ESP32_001";
-        const name = (s.profile && s.profile.fullName) || s.email || "User";
+        const name = (s.profile && s.profile.fullName) || s.email || "Consumer";
         setEl("user-display-name", name);
         setEl("user-avatar", name.charAt(0).toUpperCase());
         setEl("user-device-badge", deviceId);
         setEl("device-id-badge", deviceId);
         if(s.role === "admin") { window.location.href = "../admin/dashboard.html"; }
       }
-    } catch(e) { console.warn("Session:", e); }
+    } catch(e) { console.warn("Session error:", e); }
 
-    el("logout-btn").addEventListener("click", async function(e){
+    el("logout-btn").addEventListener("click", async (e) => {
       e.preventDefault();
       localStorage.removeItem(SESSION_KEY);
-      try { await signOut(auth); } catch(_){}
+      if(auth) { try { await signOut(auth); } catch(_){} }
       window.location.href = "../login.html";
     });
 
-    try {
-      const snap = await get(ref(db, "settings/tariff"));
-      if(snap.exists()){ tariffRate = snap.val().ratePerUnit || 6.50; setEl("sidebar-tariff", "Rs "+tariffRate.toFixed(2)+" / kWh"); }
-    } catch(_){}
-
-    // Chart
+    // ── 4. LIVE TELEMETRY CHART (Instant) ──
     let metric = "power";
-    const COLORS = {power:"#ef4444",voltage:"#00d4ff",current:"#f59e0b"};
-    const labels = [], data = [];
+    const COLORS = { power:"#ef4444", voltage:"#00d4ff", current:"#f59e0b" };
+    const labels = [], chartData = [];
     const ctx = el("live-chart").getContext("2d");
     const chart = new Chart(ctx, {
-      type:"line",
-      data:{ labels:labels, datasets:[{ label:"Power (W)", data:data, borderColor:COLORS.power, backgroundColor:COLORS.power+"18", fill:true, tension:0.4, borderWidth:2, pointRadius:0 }] },
-      options:{ responsive:true, maintainAspectRatio:false, animation:{duration:0}, plugins:{legend:{display:false}},
-        scales:{ x:{ticks:{maxTicksLimit:8,color:"#94a3b8"},grid:{color:"rgba(255,255,255,0.05)"}}, y:{beginAtZero:true,ticks:{color:"#94a3b8"},grid:{color:"rgba(255,255,255,0.05)"}} } }
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [{
+          label: "Power (W)",
+          data: chartData,
+          borderColor: COLORS.power,
+          backgroundColor: COLORS.power + "18",
+          fill: true,
+          tension: 0.35,
+          borderWidth: 2.2,
+          pointRadius: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 0 },
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 8, color: "#94a3b8" }, grid: { color: "rgba(255,255,255,0.05)" } },
+          y: { beginAtZero: true, ticks: { color: "#94a3b8" }, grid: { color: "rgba(255,255,255,0.05)" } }
+        }
+      }
     });
 
-    document.querySelectorAll(".metric-btn").forEach(function(btn){
-      btn.addEventListener("click", function(){
-        document.querySelectorAll(".metric-btn").forEach(function(b){ b.classList.remove("active"); });
+    document.querySelectorAll(".metric-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".metric-btn").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         metric = btn.dataset.metric;
         chart.data.datasets[0].borderColor = COLORS[metric];
-        chart.data.datasets[0].backgroundColor = COLORS[metric]+"18";
-        chart.data.datasets[0].label = {power:"Power (W)",voltage:"Voltage (V)",current:"Current (A)"}[metric];
-        labels.length = 0; data.length = 0; chart.update();
+        chart.data.datasets[0].backgroundColor = COLORS[metric] + "18";
+        chart.data.datasets[0].label = { power:"Power (W)", voltage:"Voltage (V)", current:"Current (A)" }[metric];
+        labels.length = 0; chartData.length = 0;
+        chart.update();
       });
     });
 
-    // State
-    let accEnergy=0, lastEnergyMs=0, packetCount=0, maxP=0, minP=Infinity, lastSaveMs=0;
+    // ── 5. STATE & TELEMETRY CALCULATOR ──
+    let accEnergy = 0, lastEnergyMs = 0, packetCount = 0, maxP = 0, minP = Infinity, lastSaveMs = 0;
 
-    async function saveCloud(reading){
+    async function saveCloud(reading) {
+      // 1. Always cache locally per user
       try {
-        await set(ref(db,"readings/"+userUid+"/"+deviceId+"/"+Date.now()), reading);
-        await set(ref(db,"devices/"+deviceId+"/latestReading"), Object.assign({},reading,{online:true}));
-        setEl("stat-sync","Synced to Cloud"); setEl("fb-sync","Cloud Synced");
-      } catch(e){ setEl("stat-sync","Sync failed"); }
+        localStorage.setItem(`smartenergy_reading_${userUid}`, JSON.stringify(reading));
+      } catch(_) {}
+
+      // 2. Non-blocking Firebase push with 1500ms timeout
+      if(db) {
+        try {
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 1500));
+          const syncPromise = Promise.all([
+            set(ref(db, `readings/${userUid}/${deviceId}/${Date.now()}`), reading),
+            set(ref(db, `devices/${deviceId}/latestReading`), Object.assign({}, reading, { online: true }))
+          ]);
+          await Promise.race([syncPromise, timeoutPromise]);
+          setEl("stat-sync", "Synced to Cloud");
+          setEl("fb-sync", "Cloud Synced");
+        } catch(_) {
+          setEl("stat-sync", "Saved Locally");
+          setEl("fb-sync", "Local Storage");
+        }
+      }
     }
 
-    function handleReading(d){
+    function handleReading(d) {
       packetCount++;
       const now = Date.now();
-      if(lastEnergyMs > 0){ accEnergy += (d.power||0) * (now - lastEnergyMs) / 3600000000; }
+      if(lastEnergyMs > 0) {
+        accEnergy += (d.power || 0) * (now - lastEnergyMs) / 3600000000;
+      }
       lastEnergyMs = now;
       const cost = accEnergy * tariffRate;
 
@@ -275,151 +327,256 @@
       setEl("kpi-current", d.current > 0 ? d.current.toFixed(2) : "0.00");
       setEl("kpi-power",   d.power   > 0 ? d.power.toFixed(1)   : "0.0");
       setEl("kpi-energy",  accEnergy.toFixed(4));
-      setEl("kpi-cost",    "Rs "+cost.toFixed(2));
+      setEl("kpi-cost",    "Rs " + cost.toFixed(2));
 
       const vs = el("volt-status");
-      if(vs){ if(d.voltage<=0){vs.textContent="No signal";vs.className="badge badge-muted";}
-              else if(d.voltage<180||d.voltage>270){vs.textContent="Out of Range";vs.className="badge badge-danger";}
-              else{vs.textContent="Normal 230V";vs.className="badge badge-success";} }
+      if(vs) {
+        if(d.voltage <= 0) { vs.textContent = "No signal"; vs.className = "badge badge-muted"; }
+        else if(d.voltage < 180 || d.voltage > 270) { vs.textContent = "Out of Range"; vs.className = "badge badge-danger"; }
+        else { vs.textContent = "Normal 230V"; vs.className = "badge badge-success"; }
+      }
 
       if(d.power > maxP) maxP = d.power;
       if(d.power < minP) minP = d.power;
-      setEl("stat-max-power", maxP.toFixed(0)+" W");
-      setEl("stat-min-power", (minP===Infinity?0:minP).toFixed(0)+" W");
-      setEl("stat-energy", accEnergy.toFixed(4)+" kWh");
-      setEl("stat-cost", "Rs "+cost.toFixed(2));
+      setEl("stat-max-power", maxP.toFixed(0) + " W");
+      setEl("stat-min-power", (minP === Infinity ? 0 : minP).toFixed(0) + " W");
+      setEl("stat-energy", accEnergy.toFixed(4) + " kWh");
+      setEl("stat-cost", "Rs " + cost.toFixed(2));
       setEl("stat-packets", packetCount);
       setEl("packets-count", packetCount);
       setEl("serial-raw", JSON.stringify(d));
 
-      const val = metric==="voltage"?d.voltage:metric==="current"?d.current:d.power;
-      const t = new Date().toLocaleTimeString("en-IN",{hour12:false,hour:"2-digit",minute:"2-digit",second:"2-digit"});
-      labels.push(t); data.push(val);
-      if(labels.length>60){ labels.shift(); data.shift(); }
+      const val = metric === "voltage" ? d.voltage : metric === "current" ? d.current : d.power;
+      const t = new Date().toLocaleTimeString("en-IN", { hour12:false, hour:"2-digit", minute:"2-digit", second:"2-digit" });
+      labels.push(t);
+      chartData.push(val);
+      if(labels.length > 60) { labels.shift(); chartData.shift(); }
       chart.update("none");
 
-      const overload = d.power>3000||d.current>13;
+      const overload = d.power > 3000 || d.current > 13;
       const ab = el("alert-banner");
-      if(ab){ if(overload){ab.classList.remove("hidden");setEl("alert-msg","Power:"+d.power.toFixed(0)+"W / Current:"+d.current.toFixed(2)+"A EXCEEDS LIMIT");}else{ab.classList.add("hidden");} }
+      if(ab) {
+        if(overload) {
+          ab.classList.remove("hidden");
+          setEl("alert-msg", `Power: ${d.power.toFixed(0)}W / Current: ${d.current.toFixed(2)}A EXCEEDS THRESHOLD LIMIT`);
+        } else {
+          ab.classList.add("hidden");
+        }
+      }
 
       el("device-status-dot").className = "dot dot-success pulse";
-      setEl("device-status-text","Connected");
+      setEl("device-status-text", "Connected");
 
-      if(now - lastSaveMs >= 30000){ lastSaveMs=now; saveCloud({voltage:d.voltage,current:d.current,power:d.power,energy_kwh:accEnergy,estimated_cost:cost,timestamp:new Date().toISOString(),device_id:deviceId}); }
+      if(now - lastSaveMs >= 15000) {
+        lastSaveMs = now;
+        saveCloud({
+          voltage: d.voltage,
+          current: d.current,
+          power: d.power,
+          energy_kwh: accEnergy,
+          estimated_cost: cost,
+          timestamp: new Date().toISOString(),
+          device_id: deviceId
+        });
+      }
     }
 
-    // Browser check
+    // ── 6. WEB SERIAL COMMUNICATION (INSTANT BINDING - ZERO BLOCKING) ──
     const supported = ("serial" in navigator);
-    setEl("stat-browser", supported ? "Chrome/Edge - Web Serial OK" : "NOT Chrome/Edge - Serial NOT supported");
+    setEl("stat-browser", supported ? "Google Chrome / Edge (Web Serial OK)" : "Browser NOT Supported (Use Chrome/Edge)");
 
-    if(!supported){
-      setStatus("!", "<strong style='color:#f59e0b;'>Your browser does NOT support Web Serial.</strong> Please open in <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> (desktop). Use Demo Mode to test.", "bar-warn");
-      el("connect-btn").disabled = true;
-      el("connect-btn").style.opacity = "0.4";
+    const btn = el("connect-btn");
+    let port = null, reader = null, connected = false;
+
+    if(!supported) {
+      setStatus("⚠️", "<strong style='color:#f59e0b;'>Web Serial not supported in this browser.</strong> Please open in <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> on a desktop PC. You can use <em>Demo Mode</em> to test right now.", "bar-warn");
+      btn.style.opacity = "0.5";
     } else {
-      setStatus("C","Click <strong>Connect Device</strong> - a port picker dialog will appear. Select your <strong>ESP32 COM port</strong>.","bar-idle");
+      setStatus("🔌", "Click <strong>Connect Device</strong> — a browser dialog will appear asking you to choose your <strong>ESP32 COM Port</strong>.", "bar-idle");
     }
 
-    // Serial state
-    let port=null, reader=null, connected=false;
-    const btn = el("connect-btn");
+    // CRITICAL: Call navigator.serial.requestPort() IMMEDIATELY inside the user click gesture!
+    // NEVER disable the button before requestPort() as Chromium cancels the user activation token!
+    btn.addEventListener("click", async () => {
+      if(connected) {
+        await doDisconnect("Manual Disconnect");
+        return;
+      }
 
-    btn.addEventListener("click", async function(){
-      if(connected){ await doDisconnect("Manual disconnect"); return; }
-      if(!supported){ toast("Web Serial not supported - use Chrome or Edge","error",6000); return; }
+      if(!supported) {
+        toast("Web Serial is only supported in Google Chrome or Microsoft Edge on PC.", "error", 6000);
+        return;
+      }
+
       try {
-        btn.disabled=true; btn.className="btn btn-sm"; btn.textContent="Selecting port...";
-        setStatus("...","A port picker dialog is opening above - select your ESP32 COM port.","bar-idle");
+        setStatus("⏳", "<strong>Select your ESP32 Port</strong> in the browser prompt window that just opened above...", "bar-idle");
+        
+        // Native Chrome/Edge port picker popup
         port = await navigator.serial.requestPort();
-        btn.textContent = "Opening port...";
-        await port.open({baudRate:115200,dataBits:8,stopBits:1,parity:"none",bufferSize:4096});
-        connected=true;
-        btn.disabled=false; btn.className="btn btn-sm state-connected"; btn.textContent="Disconnect";
+
+        // User picked a port! Now open connection at 115200 baud
+        btn.textContent = "Opening Port...";
+        btn.disabled = true;
+
+        await port.open({
+          baudRate: 115200,
+          dataBits: 8,
+          stopBits: 1,
+          parity: "none",
+          bufferSize: 4096
+        });
+
+        connected = true;
+        btn.disabled = false;
+        btn.className = "btn btn-sm state-connected";
+        btn.textContent = "Disconnect Device";
+
         const info = port.getInfo();
-        const lbl = (info && info.usbProductId) ? "USB("+info.usbVendorId+":"+info.usbProductId+")" : "Serial Port";
-        el("port-info-badge").textContent = "Port: "+lbl+" @ 115200";
+        const lbl = (info && info.usbProductId) ? `USB (${info.usbVendorId}:${info.usbProductId})` : "ESP32 Serial Port";
+        el("port-info-badge").textContent = `Port: ${lbl} @ 115200`;
         el("port-info-badge").className = "badge badge-success";
-        setStatus("OK","ESP32 connected on <strong>"+lbl+"</strong>. Receiving live telemetry...","bar-connected");
-        toast("ESP32 connected via USB!","success");
-        navigator.serial.addEventListener("disconnect", function(e){ if(e.target===port) doDisconnect("USB cable disconnected"); });
+        setStatus("✅", `Connected to <strong>${lbl}</strong>! Reading live ESP32 voltage and current...`, "bar-connected");
+        toast("ESP32 Connected Successfully!", "success");
+
+        port.addEventListener("disconnect", () => doDisconnect("USB cable was unplugged"));
         startReading();
-      } catch(err){
-        btn.disabled=false; btn.className="btn btn-primary btn-sm"; btn.textContent="Connect Device";
-        if(err.name==="NotFoundError"){
-          setStatus("C","No port selected. Click <strong>Connect Device</strong> again and choose your ESP32 COM port.","bar-idle");
-          toast("No port selected.","warning");
-        } else if(err.message&&(err.message.includes("in use")||err.message.includes("Access denied"))||err.name==="NetworkError"){
-          setStatus("!","<strong>Port is busy!</strong> Close Arduino IDE Serial Monitor first, then try again.","bar-error");
-          toast("Port is locked - close Arduino IDE Serial Monitor first.","error",7000);
+
+      } catch(err) {
+        btn.disabled = false;
+        btn.className = "btn btn-primary btn-sm";
+        btn.textContent = "🔌 Connect Device";
+
+        if(err.name === "NotFoundError") {
+          // User closed or canceled the port selector
+          setStatus("ℹ️", "Port selection cancelled. Click <strong>Connect Device</strong> again whenever ready.", "bar-idle");
+          toast("No COM port was selected.", "info");
+        } else if(err.name === "SecurityError") {
+          setStatus("⚠️", "Browser Security Notice: Click <strong>Connect Device</strong> directly.", "bar-error");
+          toast("Permission request expired. Please click again.", "warning");
+        } else if(err.message && (err.message.includes("in use") || err.message.includes("Access denied")) || err.name === "NetworkError") {
+          setStatus("🔒", "<strong style='color:#ef4444;'>COM Port is Locked!</strong> Please <strong>close the Arduino IDE Serial Monitor</strong> or other serial terminals, then click Connect Device again.", "bar-error");
+          toast("Port locked! Close Arduino IDE Serial Monitor.", "error", 8000);
         } else {
-          setStatus("X","Error: "+err.message,"bar-error");
-          toast("Serial error: "+err.message,"error",6000);
+          setStatus("❌", "Connection Notice: " + err.message, "bar-error");
+          toast("Serial error: " + err.message, "error", 6000);
         }
       }
     });
 
-    async function startReading(){
-      const dec = new TextDecoder(); let buf="";
-      while(port && port.readable && connected){
+    async function startReading() {
+      const dec = new TextDecoder();
+      let buf = "";
+
+      while(port && port.readable && connected) {
         reader = port.readable.getReader();
         try {
-          while(true){
-            const {value, done} = await reader.read();
+          while(true) {
+            const { value, done } = await reader.read();
             if(done) break;
-            if(value){
-              buf += dec.decode(value,{stream:true});
-              const lines = buf.split("\n"); buf = lines.pop();
-              for(const line of lines){
-                const t=line.trim(); if(!t) continue;
+            if(value) {
+              buf += dec.decode(value, { stream: true });
+              const lines = buf.split("\n");
+              buf = lines.pop(); // keep partial trailing line
+              for(const line of lines) {
+                const t = line.trim();
+                if(!t) continue;
                 try {
-                  const s=t.indexOf("{"), e=t.lastIndexOf("}");
-                  if(s>=0&&e>s){
-                    const d=JSON.parse(t.substring(s,e+1));
-                    if(typeof d.voltage==="number"&&typeof d.current==="number") handleReading(d);
+                  const s = t.indexOf("{"), e = t.lastIndexOf("}");
+                  if(s >= 0 && e > s) {
+                    const parsed = JSON.parse(t.substring(s, e + 1));
+                    if(typeof parsed.voltage === "number" && typeof parsed.current === "number") {
+                      handleReading(parsed);
+                    }
                   }
-                } catch(_){}
+                } catch(_) {}
               }
             }
           }
-        } catch(e){ if(connected) console.warn("Read:",e.message); }
-        finally { try{ reader.releaseLock(); }catch(_){} reader=null; }
+        } catch(readErr) {
+          if(connected) console.warn("Serial stream read warning:", readErr.message);
+        } finally {
+          try { reader.releaseLock(); } catch(_) {}
+          reader = null;
+        }
       }
     }
 
-    async function doDisconnect(reason){
-      connected=false;
-      if(reader){ try{await reader.cancel();}catch(_){} try{reader.releaseLock();}catch(_){} reader=null; }
-      if(port){ try{await port.close();}catch(_){} port=null; }
-      btn.disabled=false; btn.className="btn btn-primary btn-sm"; btn.textContent="Connect Device";
-      el("port-info-badge").textContent="Port: Disconnected"; el("port-info-badge").className="badge badge-danger";
-      el("device-status-dot").className="dot dot-danger"; setEl("device-status-text","Offline");
-      setStatus("C","Disconnected ("+reason+"). Click <strong>Connect Device</strong> to reconnect.","bar-idle");
-      toast("Disconnected: "+reason,"warning");
+    async function doDisconnect(reason) {
+      connected = false;
+      if(reader) {
+        try { await reader.cancel(); } catch(_) {}
+        try { reader.releaseLock(); } catch(_) {}
+        reader = null;
+      }
+      if(port) {
+        try { await port.close(); } catch(_) {}
+        port = null;
+      }
+      btn.disabled = false;
+      btn.className = "btn btn-primary btn-sm";
+      btn.textContent = "🔌 Connect Device";
+      el("port-info-badge").textContent = "Port: Disconnected";
+      el("port-info-badge").className = "badge badge-danger";
+      el("device-status-dot").className = "dot dot-danger";
+      setEl("device-status-text", "Offline");
+      setStatus("🔌", `Disconnected (${reason}). Click <strong>Connect Device</strong> to reconnect.`, "bar-idle");
+      toast(`Disconnected: ${reason}`, "warning");
     }
 
-    // Demo mode
-    let demoInt=null, demoOn=false;
-    el("demo-btn").addEventListener("click", function(){
-      if(demoOn){
-        clearInterval(demoInt); demoOn=false;
-        el("demo-btn").textContent="Demo Mode";
-        setStatus("C","Demo stopped. Click Connect Device to use real hardware.","bar-idle");
-        el("device-status-dot").className="dot dot-danger"; setEl("device-status-text","Offline");
-        toast("Demo stopped","info"); return;
+    // ── 7. SIMULATED DEMO MODE ──
+    let demoInt = null, demoOn = false;
+    el("demo-btn").addEventListener("click", () => {
+      if(demoOn) {
+        clearInterval(demoInt);
+        demoOn = false;
+        el("demo-btn").textContent = "🎮 Demo Mode";
+        setStatus("🔌", "Demo mode stopped. Click <strong>Connect Device</strong> to use your physical ESP32.", "bar-idle");
+        el("device-status-dot").className = "dot dot-danger";
+        setEl("device-status-text", "Offline");
+        toast("Simulation stopped.", "info");
+        return;
       }
-      demoOn=true; el("demo-btn").textContent="Stop Demo";
-      setStatus("D","Demo simulation active - generating synthetic AC waveform data.","bar-connected");
-      el("port-info-badge").textContent="Mode: Simulated"; el("port-info-badge").className="badge badge-info";
-      toast("Demo Mode active - simulating ESP32 live data","success");
-      demoInt = setInterval(function(){
-        const v=Math.round((230+Math.sin(Date.now()/5000)*4+(Math.random()*1.5-0.75))*10)/10;
-        const i=Math.max(0.05,Math.round((1.8+Math.sin(Date.now()/7000)*0.4+(Math.random()*0.15-0.075))*100)/100);
-        const p=Math.round(v*i*0.98*10)/10;
-        handleReading({device_id:deviceId,voltage:v,current:i,power:p,energy_kwh:0,estimated_cost:0,timestamp:new Date().toISOString()});
+      demoOn = true;
+      el("demo-btn").textContent = "⏹ Stop Demo";
+      setStatus("⚡", "Simulated hardware active — generating realistic 230V AC waveform and load readings.", "bar-connected");
+      el("port-info-badge").textContent = "Mode: Simulated Hardware";
+      el("port-info-badge").className = "badge badge-info";
+      toast("Demo Mode active — simulating ESP32 data", "success");
+      demoInt = setInterval(() => {
+        const v = Math.round((230 + Math.sin(Date.now() / 5000) * 4 + (Math.random() * 1.5 - 0.75)) * 10) / 10;
+        const i = Math.max(0.05, Math.round((1.8 + Math.sin(Date.now() / 7000) * 0.4 + (Math.random() * 0.15 - 0.075)) * 100) / 100);
+        const p = Math.round(v * i * 0.98 * 10) / 10;
+        handleReading({
+          device_id: deviceId,
+          voltage: v,
+          current: i,
+          power: p,
+          energy_kwh: 0,
+          estimated_cost: 0,
+          timestamp: new Date().toISOString()
+        });
       }, 1000);
     });
 
-    if(new URLSearchParams(window.location.search).get("demo")==="true"){ el("demo-btn").click(); }
+    // ── 8. NON-BLOCKING BACKGROUND TARIFF LOAD ──
+    setTimeout(async () => {
+      if(!db) return;
+      try {
+        const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 1500));
+        const snap = await Promise.race([get(ref(db, "settings/tariff")), timeout]);
+        if(snap && snap.exists()) {
+          tariffRate = snap.val().ratePerUnit || 6.50;
+          setEl("sidebar-tariff", "Rs " + tariffRate.toFixed(2) + " / kWh");
+        }
+      } catch(_) {
+        // Fallback to default tariff instantly
+        tariffRate = 6.50;
+      }
+    }, 150);
+
+    if(new URLSearchParams(window.location.search).get("demo") === "true") {
+      el("demo-btn").click();
+    }
   </script>
 </body>
 </html>

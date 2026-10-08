@@ -2,11 +2,9 @@
   "name": "mech-smart-current-control",
   "version": "1.0.0",
   "description": "Smart Energy Monitoring & Consumption Cost Analytics System with ESP32 & Firebase",
-  "main": "server.js",
   "scripts": {
-    "build": "echo 'Build complete'",
-    "dev": "node server.js",
-    "start": "node server.js",
+    "dev": "node dev-server.js",
+    "start": "node dev-server.js",
     "serve": "npx serve . -l 3000",
     "deploy": "firebase deploy --only hosting",
     "deploy:rules": "firebase deploy --only database"

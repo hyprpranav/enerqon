@@ -81,7 +81,6 @@ server.listen(PORT, () => {
   console.log(`\n======================================================`);
   console.log(`⚡ SmartEnergy Monitor Server Running!`);
   console.log(`📡 Local URL:   http://localhost:${PORT}`);
-  console.log(`👑 Admin Setup: http://localhost:${PORT}/admin-setup.html`);
   console.log(`🔑 Login Page:  http://localhost:${PORT}/login.html`);
   console.log(`🔌 Web Serial: Enabled (Secure localhost context)`);
   console.log(`======================================================\n`);

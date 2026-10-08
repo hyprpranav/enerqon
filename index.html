@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartEnergy Monitor — IoT AC Energy & Cost Analytics Platform</title>
+  <meta name="description" content="Commercial-grade IoT Energy Monitoring and Consumption Cost Estimation platform using ESP32, ACS712, LM358, Firebase, and Web Serial API." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+  <style>
+    .hero-section {
+      min-height: 88vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 1.5rem;
+      background: radial-gradient(circle at 50% 20%, rgba(0, 212, 255, 0.08) 0%, rgba(10, 14, 26, 1) 70%);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-grid {
+      max-width: 1200px;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 3.5rem;
+      align-items: center;
+    }
+    .hero-title {
+      font-size: 3.2rem;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.25rem;
+      background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-title span {
+      background: linear-gradient(135deg, var(--clr-primary) 0%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-subtitle {
+      font-size: 1.125rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-bottom: 2rem;
+    }
+    .hero-cta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+    }
+    .feature-pill-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .feature-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.85rem;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: 9999px;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+    }
+    .preview-card {
+      background: rgba(26, 34, 52, 0.85);
+      border: 1px solid var(--border-primary);
+      border-radius: var(--radius-xl);
+      padding: 1.75rem;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 212, 255, 0.12);
+      backdrop-filter: blur(16px);
+      position: relative;
+    }
+    .metric-mini-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-top: 1.25rem;
+    }
+    .metric-mini-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+    }
+    .features-section {
+      padding: 5rem 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .section-header {
+      text-align: center;
+      margin-bottom: 3.5rem;
+    }
+    .section-header h2 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.75rem;
+    }
+    .section-header p {
+      color: var(--text-secondary);
+      font-size: 1.05rem;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.75rem;
+    }
+    .feat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      transition: all var(--trans-normal);
+    }
+    .feat-card:hover {
+      border-color: var(--border-primary);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 30px rgba(0, 212, 255, 0.08);
+    }
+    .feat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      background: var(--clr-primary-glow);
+      color: var(--clr-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 3rem 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+    @media (max-width: 900px) {
+      .hero-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+      .hero-title { font-size: 2.5rem; }
+    }
+  </style>
+</head>
+<body class="bg-base text-primary">
+
+  <!-- Navbar -->
+  <header class="app-header">
+    <a href="index.html" class="logo-area">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">Smart<span>Energy</span></div>
+      <span class="badge badge-info" style="font-size:0.7rem;letter-spacing:0.05em;padding:0.25rem 0.65rem;">IoT PROTOTYPE</span>
+    </a>
+    <div class="header-right">
+      <a href="login.html" class="btn btn-ghost">Sign In</a>
+      <a href="register.html" class="btn btn-primary">Request Access</a>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="hero-grid">
+      <div>
+        <div class="badge badge-primary" style="margin-bottom:1rem;display:inline-flex;align-items:center;gap:0.4rem;">
+          <span class="dot dot-primary pulse"></span> Real-Time AC Current & Voltage Monitoring
+        </div>
+        <h1 class="hero-title">
+          Intelligent <span>Energy Monitoring</span> & Cost Estimation
+        </h1>
+        <p class="hero-subtitle">
+          Continuous AC power monitoring with ESP32, ACS712, and LM358 sensors. Instant plug-and-play browser telemetry via Web Serial API, synchronized with Firebase cloud analytics.
+        </p>
+        <div class="hero-cta">
+          <a href="login.html" class="btn btn-primary btn-xl">
+            ⚡ Open Dashboard
+          </a>
+          <a href="register.html" class="btn btn-outline btn-xl">
+            📝 Request Client Account
+          </a>
+          <a href="user/dashboard.html?demo=true" class="btn btn-ghost btn-xl" style="border:1px dashed var(--border-default);">
+            🎮 Launch Interactive Demo
+          </a>
+        </div>
+        <div class="feature-pill-list">
+          <div class="feature-pill">🔌 USB Web Serial Port</div>
+          <div class="feature-pill">⚡ ACS712 True RMS Current</div>
+          <div class="feature-pill">📡 Firebase Cloud Sync</div>
+          <div class="feature-pill">💰 Configurable Tariffs</div>
+          <div class="feature-pill">⚠️ Anomaly Detection</div>
+          <div class="feature-pill">👥 Multi-Tenant Role Isolation</div>
+        </div>
+      </div>
+
+      <!-- Live Mockup Card -->
+      <div class="preview-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <span class="dot dot-success pulse"></span>
+            <span style="font-size:0.82rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:var(--clr-success);">LIVE TELEMETRY STREAM</span>
+          </div>
+          <span class="badge badge-primary">ESP32_001</span>
+        </div>
+
+        <div style="background:rgba(10,14,26,0.6);border-radius:var(--radius-md);padding:1.25rem;border:1px solid var(--border-subtle);text-align:center;">
+          <div style="font-size:0.8rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Active Real Power</div>
+          <div style="font-family:var(--font-mono);font-size:2.8rem;font-weight:800;color:var(--clr-primary);" id="preview-power">419.3 W</div>
+          <div style="font-size:0.75rem;color:var(--clr-success);margin-top:0.25rem;">● Power Factor 0.98 | Frequency 50.0 Hz</div>
+        </div>
+
+        <div class="metric-mini-grid">
+          <div class="metric-mini-box">
+            <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;">AC Voltage</div>
+            <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:var(--text-primary);" id="preview-volt">230.4 V</div>
+            <div style="font-size:0.7rem;color:var(--clr-success);">Normal Range</div>
+          </div>
+          <div class="metric-mini-box">
+            <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;">AC Current</div>
+            <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:var(--text-primary);" id="preview-curr">1.82 A</div>
+            <div style="font-size:0.7rem;color:var(--text-secondary);">ACS712-05B</div>
+          </div>
+          <div class="metric-mini-box">
+            <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;">Energy Usage</div>
+            <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:var(--clr-accent-light);" id="preview-kwh">2.84 kWh</div>
+            <div style="font-size:0.7rem;color:var(--text-secondary);">Today</div>
+          </div>
+          <div class="metric-mini-box">
+            <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;">Estimated Cost</div>
+            <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:var(--clr-warning);" id="preview-cost">₹18.46</div>
+            <div style="font-size:0.7rem;color:var(--text-secondary);">@ ₹6.50 / Unit</div>
+          </div>
+        </div>
+
+        <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border-subtle);display:flex;justify-content:space-between;align-items:center;font-size:0.78rem;color:var(--text-muted);">
+          <span>Port: <strong style="color:var(--text-secondary);">COM3 @ 115200 bps</strong></span>
+          <span>Web Serial: <strong style="color:var(--clr-success);">Ready</strong></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Grid -->
+  <section class="features-section">
+    <div class="section-header">
+      <h2>Complete IoT Monitoring Architecture</h2>
+      <p>Engineered for high accuracy AC sampling, safety isolation, real-time telemetry, and enterprise reporting.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feat-card">
+        <div class="feat-icon">⚡</div>
+        <h3 style="font-size:1.2rem;font-weight:600;margin-bottom:0.5rem;">Precise RMS AC Measurement</h3>
+        <p style="color:var(--text-secondary);font-size:0.9rem;line-height:1.6;">
+          ESP32 samples AC voltage with LM358 V3 conditioning and AC current with ACS712 Hall-effect sensor at 1 kHz per cycle, calculating accurate True RMS power and power factor.
+        </p>
+      </div>
+
+      <div class="feat-card">
+        <div class="feat-icon">🔌</div>
+        <h3 style="font-size:1.2rem;font-weight:600;margin-bottom:0.5rem;">Direct Web Serial USB Sync</h3>
+        <p style="color:var(--text-secondary);font-size:0.9rem;line-height:1.6;">
+          Zero driver or cloud lag. Connect your ESP32 directly via USB; browser streams high-frequency JSON packets line-by-line via the standard W3C Web Serial API.
+        </p>
+      </div>
+
+      <div class="feat-card">
+        <div class="feat-icon">💰</div>
+        <h3 style="font-size:1.2rem;font-weight:600;margin-bottom:0.5rem;">Configurable Tariff Engine</h3>
+        <p style="color:var(--text-secondary);font-size:0.9rem;line-height:1.6;">
+          Dynamic cost estimation engine with multi-slab utility tariffs, state utility presets, commercial/domestic multipliers, and live bill projection.
+        </p>
+      </div>
+
+      <div class="feat-card">
+        <div class="feat-icon">📊</div>
+        <h3 style="font-size:1.2rem;font-weight:600;margin-bottom:0.5rem;">Comprehensive Analytics</h3>
+        <p style="color:var(--text-secondary);font-size:0.9rem;line-height:1.6;">
+          Hourly load profile, peak vs. off-peak consumption analysis, daily and monthly aggregates, and one-click historical CSV / JSON report exports.
+        </p>
+      </div>
+
+      <div class="feat-card">
+        <div class="feat-icon">🛡️</div>
+        <h3 style="font-size:1.2rem;font-weight:600;margin-bottom:0.5rem;">Abnormal Load Guard</h3>
+        <p style="color:var(--text-secondary);font-size:0.9rem;line-height:1.6;">
+          Rule-based threshold alerts for overvoltage, undervoltage, current surges, and abnormal power spikes with instant visual alarms on user & admin dashboards.
+        </p>
+      </div>
+
+      <div class="feat-card">
+        <div class="feat-icon">👥</div>
+        <h3 style="font-size:1.2rem;font-weight:600;margin-bottom:0.5rem;">Role-Based Administration</h3>
+        <p style="color:var(--text-secondary);font-size:0.9rem;line-height:1.6;">
+          Strict Firebase role-based authorization: dedicated Admin portal for sensor calibration, user verification, grid monitoring, and client telemetry.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div style="max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <span style="color:var(--clr-primary);font-size:1.2rem;">⚡</span>
+        <strong style="color:var(--text-primary);">SmartEnergy Monitor</strong> — AC IoT Consumption Analytics
+      </div>
+      <div>ESP32 · ACS712 · LM358 V3 · Firebase · Web Serial API</div>
+      <div>&copy; 2026 SmartEnergy IoT System. All rights reserved.</div>
+    </div>
+  </footer>
+
+  <script>
+    // Subtle animated simulated values on landing page
+    setInterval(() => {
+      const v = (229.5 + Math.random() * 2.5).toFixed(1);
+      const i = (1.75 + Math.random() * 0.15).toFixed(2);
+      const p = (v * i * 0.98).toFixed(1);
+      document.getElementById('preview-volt').textContent = v + ' V';
+      document.getElementById('preview-curr').textContent = i + ' A';
+      document.getElementById('preview-power').textContent = p + ' W';
+    }, 2500);
+  </script>
+</body>
+</html>

@@ -1,0 +1,374 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Consumer Telemetry & Audit — SmartEnergy Admin</title>
+  <meta name="description" content="In-depth profile, live sensor stream, and consumption logs for a specific registered client." />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+  <link rel="stylesheet" href="../css/responsive.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-base text-primary">
+
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- Admin Header -->
+  <header class="app-header">
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <button class="mobile-menu-btn" id="menu-toggle" aria-label="Toggle navigation">☰</button>
+      <div class="logo-area">
+        <div class="logo-icon" style="background:linear-gradient(135deg,#7c3aed,#ec4899);">⚡</div>
+        <div class="logo-text">Smart<span>Energy</span></div>
+        <span class="badge badge-accent" style="font-size:0.7rem;">CONSUMER AUDIT</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="header-time" id="clock-display">--:--:--</div>
+      <a href="users.html" class="btn btn-outline btn-sm">← Back to Users</a>
+      <div class="user-pill">
+        <div class="avatar" style="background:var(--clr-accent);">A</div>
+        <div class="user-info">
+          <div class="user-name">System Admin</div>
+          <div class="user-role" style="color:var(--clr-accent-light);">Superuser</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <!-- Admin Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section-title">ADMINISTRATION</div>
+      <nav class="nav-menu">
+        <a href="dashboard.html" class="nav-item">
+          <span class="nav-icon">📊</span>
+          <span>Grid Overview</span>
+        </a>
+        <a href="users.html" class="nav-item active">
+          <span class="nav-icon">👥</span>
+          <span>User Directory</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-section-title" style="margin-top:2rem;">SYSTEM</div>
+      <nav class="nav-menu">
+        <a href="../user/dashboard.html" class="nav-item" style="color:var(--clr-primary);">
+          <span class="nav-icon">🔌</span>
+          <span>Client View</span>
+        </a>
+        <a href="../login.html" class="nav-item" id="logout-btn">
+          <span class="nav-icon">🚪</span>
+          <span>Sign Out</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- User Profile Header Card -->
+      <div class="card" style="margin-bottom:1.75rem;padding:1.5rem;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1.5rem;">
+          <div style="display:flex;gap:1.25rem;align-items:center;">
+            <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--clr-primary),var(--clr-accent));display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:700;color:#0a0e1a;" id="detail-avatar">
+              U
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;gap:0.75rem;">
+                <h1 style="font-size:1.6rem;font-weight:700;margin:0;" id="detail-name">Loading Consumer...</h1>
+                <span class="badge badge-success" id="detail-status-badge">Active</span>
+              </div>
+              <div style="color:var(--text-secondary);font-size:0.875rem;margin-top:0.25rem;">
+                UID: <span class="font-mono" id="detail-uid">-</span> | Registered: <span id="detail-joined">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Action Buttons -->
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+            <button id="toggle-status-btn" class="btn btn-warning btn-sm">Deactivate Account</button>
+            <button id="reset-pw-btn" class="btn btn-outline btn-sm">Send Password Reset</button>
+            <button id="edit-device-btn" class="btn btn-secondary btn-sm">Edit Device ID</button>
+          </div>
+        </div>
+
+        <div class="grid grid-4" style="gap:1rem;margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border-subtle);font-size:0.85rem;">
+          <div>
+            <span style="color:var(--text-muted);display:block;">Email Address</span>
+            <strong id="detail-email">-</strong>
+          </div>
+          <div>
+            <span style="color:var(--text-muted);display:block;">Phone Number</span>
+            <strong id="detail-phone">-</strong>
+          </div>
+          <div>
+            <span style="color:var(--text-muted);display:block;">Assigned Hardware</span>
+            <span class="badge badge-primary" id="detail-device">ESP32_001</span>
+          </div>
+          <div>
+            <span style="color:var(--text-muted);display:block;">Premises Address</span>
+            <span id="detail-address">-</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Telemetry KPI Cards -->
+      <h2 style="font-size:1.25rem;font-weight:700;margin-bottom:1rem;">Real-Time Node Telemetry</h2>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">AC RMS Voltage</span>
+            <div class="kpi-icon icon-volt">⚡</div>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-voltage">0.0</span>
+            <span class="kpi-unit">V</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="badge badge-success">Nominal</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">AC RMS Current</span>
+            <div class="kpi-icon icon-curr">🔌</div>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-current">0.00</span>
+            <span class="kpi-unit">A</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="text-secondary" style="font-size:0.75rem;">ACS712 Sensor</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Active Real Power</span>
+            <div class="kpi-icon icon-power">💡</div>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-power">0.0</span>
+            <span class="kpi-unit">W</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="text-secondary" style="font-size:0.75rem;">P = Vrms × Irms × PF</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Accumulated Energy</span>
+            <div class="kpi-icon icon-energy">🔋</div>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-energy">0.00</span>
+            <span class="kpi-unit">kWh</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="badge badge-primary">Units</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Estimated Cost</span>
+            <div class="kpi-icon icon-cost">💰</div>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-cost" style="color:var(--clr-warning);">₹0.00</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="text-secondary" style="font-size:0.75rem;">@ ₹6.50 / Unit</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trend Chart -->
+      <div class="chart-card" style="margin-top:1.75rem;">
+        <div class="chart-header">
+          <div>
+            <h2 class="chart-title">Weekly Load Profile (7 Days)</h2>
+            <p style="font-size:0.8rem;color:var(--text-secondary);margin:0;">Daily energy draw for this consumer unit</p>
+          </div>
+          <span class="badge badge-info">ESP32 Telemetry</span>
+        </div>
+        <div style="height:280px;position:relative;width:100%;">
+          <canvas id="user-chart-canvas"></canvas>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script type="module">
+    import { requireAdmin, logoutUser, approveUser, deactivateUser, adminResetPassword } from "../js/auth.js";
+    import { loadUserWithLatest } from "../js/dashboard.js";
+    import { startClock, showToast, DashboardManager } from "../js/dashboard.js";
+
+    startClock(document.getElementById("clock-display"));
+    DashboardManager.setupSidebar();
+
+    try { await requireAdmin(); } catch {}
+
+    document.getElementById("logout-btn").addEventListener("click", async (e) => {
+      e.preventDefault();
+      await logoutUser();
+      window.location.href = "../login.html";
+    });
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const uid = urlParams.get("uid") || "demo_user_1";
+
+    let userData = null;
+
+    async function loadData() {
+      try {
+        userData = await loadUserWithLatest(uid);
+      } catch {}
+
+      if (!userData) {
+        // Fallback demo user
+        userData = {
+          uid: uid,
+          status: "active",
+          profile: {
+            fullName: "Rajesh Kumar",
+            email: "rajesh@example.com",
+            phone: "+91 98765 43210",
+            address: "House 42, Green Avenue, Sector 5",
+            deviceId: "ESP32_001",
+            createdAt: "2026-10-01T10:00:00Z"
+          },
+          latest: {
+            voltage: 231.2,
+            current: 2.14,
+            power: 492.3,
+            energy_kwh: 4.25,
+            estimated_cost: 27.63,
+            online: true
+          }
+        };
+      }
+
+      renderProfile();
+      renderKPIs();
+      renderChart();
+    }
+
+    function renderProfile() {
+      const p = userData.profile || {};
+      const status = userData.status || "active";
+
+      document.getElementById("detail-name").textContent = p.fullName || "Consumer";
+      document.getElementById("detail-avatar").textContent = (p.fullName || "U").substring(0, 1).toUpperCase();
+      document.getElementById("detail-uid").textContent = uid.substring(0, 12) + "...";
+      document.getElementById("detail-joined").textContent = p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "Recent";
+      document.getElementById("detail-email").textContent = p.email || "-";
+      document.getElementById("detail-phone").textContent = p.phone || "-";
+      document.getElementById("detail-device").textContent = p.deviceId || "ESP32_001";
+      document.getElementById("detail-address").textContent = p.address || "-";
+
+      const badge = document.getElementById("detail-status-badge");
+      badge.textContent = status.toUpperCase();
+      badge.className = `badge badge-${status === "active" ? "success" : status === "pending" ? "warning" : "muted"}`;
+
+      const toggleBtn = document.getElementById("toggle-status-btn");
+      if (status === "pending") {
+        toggleBtn.textContent = "✅ Approve Account";
+        toggleBtn.className = "btn btn-success btn-sm";
+      } else if (status === "active") {
+        toggleBtn.textContent = "⏸ Deactivate Account";
+        toggleBtn.className = "btn btn-warning btn-sm";
+      } else {
+        toggleBtn.textContent = "▶ Activate Account";
+        toggleBtn.className = "btn btn-primary btn-sm";
+      }
+    }
+
+    function renderKPIs() {
+      const l = userData.latest || {};
+      document.getElementById("kpi-voltage").textContent = (l.voltage || 0).toFixed(1);
+      document.getElementById("kpi-current").textContent = (l.current || 0).toFixed(2);
+      document.getElementById("kpi-power").textContent = (l.power || 0).toFixed(1);
+      document.getElementById("kpi-energy").textContent = (l.energy_kwh || 0).toFixed(2);
+      document.getElementById("kpi-cost").textContent = `₹${(l.estimated_cost || 0).toFixed(2)}`;
+    }
+
+    function renderChart() {
+      const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const data = [3.2, 4.1, 3.8, 4.5, 3.9, 5.2, 4.25];
+
+      const ctx = document.getElementById("user-chart-canvas").getContext("2d");
+      new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: days,
+          datasets: [{
+            label: "Energy (kWh)",
+            data: data,
+            backgroundColor: "rgba(0, 212, 255, 0.4)",
+            borderColor: "#00d4ff",
+            borderWidth: 1.5,
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: "#64748b" }, grid: { color: "rgba(255,255,255,0.04)" } },
+            y: { ticks: { color: "#64748b" }, grid: { color: "rgba(255,255,255,0.04)" }, title: { display: true, text: "kWh", color: "#64748b" } }
+          }
+        }
+      });
+    }
+
+    // Action buttons
+    document.getElementById("toggle-status-btn").addEventListener("click", async () => {
+      const current = userData.status;
+      try {
+        if (current === "pending" || current === "deactivated") {
+          await approveUser(uid);
+          userData.status = "active";
+          showToast("User account activated successfully!", "success");
+        } else {
+          await deactivateUser(uid);
+          userData.status = "deactivated";
+          showToast("User account deactivated.", "warning");
+        }
+        renderProfile();
+      } catch (e) {
+        showToast("Error updating status: " + e.message, "error");
+      }
+    });
+
+    document.getElementById("reset-pw-btn").addEventListener("click", async () => {
+      const email = userData.profile?.email;
+      if (!email) return;
+      try {
+        await adminResetPassword(email);
+        showToast(`Password reset link dispatched to ${email}`, "info");
+      } catch (e) {
+        showToast("Error resetting password: " + e.message, "error");
+      }
+    });
+
+    document.getElementById("edit-device-btn").addEventListener("click", () => {
+      const newDev = prompt("Enter new Device ID for this client:", userData.profile?.deviceId || "ESP32_001");
+      if (newDev && newDev.trim()) {
+        userData.profile.deviceId = newDev.trim().toUpperCase();
+        renderProfile();
+        showToast(`Assigned device updated to ${userData.profile.deviceId}`, "success");
+      }
+    });
+
+    await loadData();
+  </script>
+</body>
+</html>

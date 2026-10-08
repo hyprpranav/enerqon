@@ -1,0 +1,407 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Consumption Analytics — SmartEnergy Monitor</title>
+  <meta name="description" content="Hourly, daily, weekly, and monthly AC energy consumption analytics and cost projection." />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+  <link rel="stylesheet" href="../css/responsive.css" />
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-base text-primary">
+
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <button class="mobile-menu-btn" id="menu-toggle" aria-label="Toggle navigation">☰</button>
+      <div class="logo-area">
+        <div class="logo-icon">⚡</div>
+        <div class="logo-text">Smart<span>Energy</span></div>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="header-time" id="clock-display">--:--:--</div>
+      <div class="user-pill">
+        <div class="avatar" id="user-avatar">U</div>
+        <div class="user-info">
+          <div class="user-name" id="user-display-name">Loading...</div>
+          <div class="user-role" id="user-device-badge">ESP32_001</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section-title">MONITORING</div>
+      <nav class="nav-menu">
+        <a href="dashboard.html" class="nav-item">
+          <span class="nav-icon">⚡</span>
+          <span>Live Telemetry</span>
+        </a>
+        <a href="history.html" class="nav-item">
+          <span class="nav-icon">📜</span>
+          <span>Reading History</span>
+        </a>
+        <a href="analytics.html" class="nav-item active">
+          <span class="nav-icon">📊</span>
+          <span>Energy Analytics</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-section-title" style="margin-top:2rem;">SYSTEM</div>
+      <nav class="nav-menu">
+        <a href="../login.html" class="nav-item" id="logout-btn">
+          <span class="nav-icon">🚪</span>
+          <span>Sign Out</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Title -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+        <div>
+          <h1 style="font-size:1.75rem;font-weight:700;margin-bottom:0.25rem;">Consumption Analytics & Insights</h1>
+          <p style="color:var(--text-secondary);font-size:0.875rem;">Hourly profiles, peak usage identification, and estimated electricity billing</p>
+        </div>
+        <div style="display:flex;gap:0.5rem;">
+          <span class="badge badge-primary">Tariff: ₹6.50 / Unit</span>
+          <span class="badge badge-info">1-Phase 230V</span>
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Monthly Total</span>
+            <div class="kpi-icon icon-energy">🔋</div>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-month-kwh">84.5</span>
+            <span class="kpi-unit">kWh</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="text-secondary" style="font-size:0.75rem;">Current billing cycle</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Daily Average</span>
+            <div class="kpi-icon icon-power">⚡</div>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-avg-daily">2.82</span>
+            <span class="kpi-unit">kWh</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="badge badge-success">~₹18.33 / day</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Peak Demand Hour</span>
+            <div class="kpi-icon icon-curr">🔥</div>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-peak-hour" style="font-size:1.6rem;color:var(--clr-danger);">20:00 - 21:00</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="text-secondary" style="font-size:0.75rem;">Avg 1.45 kWh (Evening)</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Lowest Base Hour</span>
+            <div class="kpi-icon icon-volt">🌙</div>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-low-hour" style="font-size:1.6rem;color:var(--clr-success);">03:00 - 04:00</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="text-secondary" style="font-size:0.75rem;">Avg 0.12 kWh (Night idle)</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Projected Monthly Bill</span>
+            <div class="kpi-icon icon-cost">💰</div>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-projected-cost" style="color:var(--clr-warning);">₹549.25</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="text-secondary" style="font-size:0.75rem;">Estimate only</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Section: Hourly & Daily -->
+      <div class="grid grid-2" style="gap:1.5rem;margin-top:1.75rem;">
+        <!-- 24-Hour Profile -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <h2 class="chart-title">24-Hour Load Distribution</h2>
+              <p style="font-size:0.8rem;color:var(--text-secondary);margin:0;">Hourly consumption in kWh across typical day</p>
+            </div>
+            <span class="badge badge-warning">Peak Alert: 18:00 - 22:00</span>
+          </div>
+          <div style="height:300px;position:relative;width:100%;">
+            <canvas id="hourly-chart-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- 14-Day History Trend -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <h2 class="chart-title">Daily Energy Trend (Last 14 Days)</h2>
+              <p style="font-size:0.8rem;color:var(--text-secondary);margin:0;">Day-by-day accumulation & cost estimation</p>
+            </div>
+            <span class="badge badge-info">14-Day Trajectory</span>
+          </div>
+          <div style="height:300px;position:relative;width:100%;">
+            <canvas id="daily-chart-canvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Breakdown & Energy Insights Grid -->
+      <div class="grid grid-2" style="gap:1.5rem;margin-top:1.75rem;">
+        <!-- Dayparts Breakdown -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">🕒 Time-of-Day Consumption Split</h3>
+            <span class="badge badge-muted">TOD Profile</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:1.25rem;">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:0.4rem;">
+                <span>🌙 Night Base Load (23:00 - 06:00)</span>
+                <strong>15% (12.7 kWh)</strong>
+              </div>
+              <div style="height:8px;background:var(--bg-surface);border-radius:4px;overflow:hidden;">
+                <div style="width:15%;height:100%;background:var(--clr-info);"></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:0.4rem;">
+                <span>☀️ Morning Activity (06:00 - 12:00)</span>
+                <strong>28% (23.6 kWh)</strong>
+              </div>
+              <div style="height:8px;background:var(--bg-surface);border-radius:4px;overflow:hidden;">
+                <div style="width:28%;height:100%;background:var(--clr-primary);"></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:0.4rem;">
+                <span>⛅ Afternoon Steady (12:00 - 18:00)</span>
+                <strong>22% (18.6 kWh)</strong>
+              </div>
+              <div style="height:8px;background:var(--bg-surface);border-radius:4px;overflow:hidden;">
+                <div style="width:22%;height:100%;background:var(--clr-accent-light);"></div>
+              </div>
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:0.4rem;">
+                <span>🔥 Evening Peak (18:00 - 23:00)</span>
+                <strong style="color:var(--clr-danger);">35% (29.6 kWh)</strong>
+              </div>
+              <div style="height:8px;background:var(--bg-surface);border-radius:4px;overflow:hidden;">
+                <div style="width:35%;height:100%;background:var(--clr-danger);"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tariff & Efficiency Recommendations -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">💡 Smart Energy Efficiency Advisory</h3>
+            <span class="badge badge-success">Optimizations</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:1rem;font-size:0.85rem;">
+            <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+              <span style="font-size:1.25rem;">⚠️</span>
+              <div>
+                <strong>High Evening Peak Concentration:</strong>
+                <p style="color:var(--text-secondary);margin:0.2rem 0 0 0;">
+                  35% of energy is drawn between 18:00 and 23:00. Shifting high-wattage inductive loads (water heaters, irons, heavy motors) to off-peak morning hours can significantly lower peak stress.
+                </p>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+              <span style="font-size:1.25rem;">⚡</span>
+              <div>
+                <strong>Power Factor Optimization:</strong>
+                <p style="color:var(--text-secondary);margin:0.2rem 0 0 0;">
+                  Measured average PF is ~0.98. If running heavy inductive appliances where PF drops below 0.85, consider power factor correction capacitors to avoid utility penalties.
+                </p>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+              <span style="font-size:1.25rem;">💰</span>
+              <div>
+                <strong>Tariff Slab Forecast:</strong>
+                <p style="color:var(--text-secondary);margin:0.2rem 0 0 0;">
+                  At current pace of 2.82 kWh/day, monthly consumption will land at ~85 units. This remains within Tier 1 (<100 units) baseline domestic pricing.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script type="module">
+    import { requireUser, logoutUser } from "../js/auth.js";
+    import { startClock, showToast, DashboardManager } from "../js/dashboard.js";
+    import { createBarChart, createLineChart } from "../js/analytics.js";
+
+    startClock(document.getElementById("clock-display"));
+    DashboardManager.setupSidebar();
+
+    let uid = "demo_user";
+    let deviceId = "ESP32_001";
+
+    try {
+      const user = await requireUser();
+      uid = user.uid;
+      if (user.profile?.deviceId) deviceId = user.profile.deviceId;
+      if (user.profile?.fullName) {
+        document.getElementById("user-display-name").textContent = user.profile.fullName;
+        document.getElementById("user-avatar").textContent = user.profile.fullName.substring(0, 1).toUpperCase();
+      }
+    } catch {
+      document.getElementById("user-display-name").textContent = "Demo Client";
+    }
+
+    document.getElementById("user-device-badge").textContent = deviceId;
+
+    document.getElementById("logout-btn").addEventListener("click", async (e) => {
+      e.preventDefault();
+      await logoutUser();
+      window.location.href = "../login.html";
+    });
+
+    // 1. Render 24-Hour Profile Chart
+    const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}:00`);
+    const hourlyKwh = [
+      0.15, 0.12, 0.11, 0.09, 0.10, 0.14, // 00 - 05
+      0.28, 0.45, 0.52, 0.38, 0.32, 0.29, // 06 - 11
+      0.35, 0.38, 0.31, 0.28, 0.34, 0.48, // 12 - 17
+      0.72, 0.95, 1.42, 1.15, 0.55, 0.28  // 18 - 23 (peak in evening)
+    ];
+
+    const hourlyCtx = document.getElementById("hourly-chart-canvas").getContext("2d");
+    new Chart(hourlyCtx, {
+      type: "bar",
+      data: {
+        labels: hours,
+        datasets: [{
+          label: "Energy (kWh)",
+          data: hourlyKwh,
+          backgroundColor: hourlyKwh.map(v => v >= 0.8 ? "rgba(239, 68, 68, 0.65)" : "rgba(0, 212, 255, 0.45)"),
+          borderColor: hourlyKwh.map(v => v >= 0.8 ? "#ef4444" : "#00d4ff"),
+          borderWidth: 1.5,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#222d42",
+            borderColor: "rgba(255,255,255,0.1)",
+            borderWidth: 1
+          }
+        },
+        scales: {
+          x: { ticks: { color: "#64748b", font: { size: 10 } }, grid: { color: "rgba(255,255,255,0.04)" } },
+          y: { ticks: { color: "#64748b", font: { size: 11 } }, grid: { color: "rgba(255,255,255,0.04)" }, title: { display: true, text: "kWh", color: "#64748b" } }
+        }
+      }
+    });
+
+    // 2. Render 14-Day Daily Trend Chart
+    const days = [];
+    const dailyKwh = [];
+    const dailyCost = [];
+    const now = new Date();
+
+    for (let d = 13; d >= 0; d--) {
+      const dt = new Date(now);
+      dt.setDate(dt.getDate() - d);
+      days.push(dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }));
+      const kwh = Math.round((2.4 + Math.sin(d) * 0.6 + Math.random() * 0.4) * 100) / 100;
+      dailyKwh.push(kwh);
+      dailyCost.push(Math.round(kwh * 6.50 * 100) / 100);
+    }
+
+    const dailyCtx = document.getElementById("daily-chart-canvas").getContext("2d");
+    new Chart(dailyCtx, {
+      type: "line",
+      data: {
+        labels: days,
+        datasets: [
+          {
+            label: "Daily Energy (kWh)",
+            data: dailyKwh,
+            borderColor: "#00d4ff",
+            backgroundColor: "rgba(0, 212, 255, 0.12)",
+            tension: 0.35,
+            fill: true,
+            yAxisID: "y"
+          },
+          {
+            label: "Estimated Cost (₹)",
+            data: dailyCost,
+            borderColor: "#f59e0b",
+            backgroundColor: "transparent",
+            borderDash: [5, 5],
+            tension: 0.35,
+            yAxisID: "y1"
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { labels: { color: "#94a3b8" } }
+        },
+        scales: {
+          x: { ticks: { color: "#64748b", font: { size: 10 } }, grid: { color: "rgba(255,255,255,0.04)" } },
+          y: { type: "linear", display: true, position: "left", ticks: { color: "#00d4ff" }, grid: { color: "rgba(255,255,255,0.04)" } },
+          y1: { type: "linear", display: true, position: "right", ticks: { color: "#f59e0b" }, grid: { drawOnChartArea: false } }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

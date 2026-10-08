@@ -1,0 +1,549 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard — SmartEnergy Monitor</title>
+  <meta name="description" content="Master administrative management and real-time monitoring of all energy monitoring units." />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+  <link rel="stylesheet" href="../css/responsive.css" />
+  <style>
+    .admin-badge-top {
+      background: linear-gradient(135deg, var(--clr-accent), #ec4899);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body class="bg-base text-primary">
+
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- Admin Header -->
+  <header class="app-header">
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <button class="mobile-menu-btn" id="menu-toggle" aria-label="Toggle navigation">☰</button>
+      <div class="logo-area">
+        <div class="logo-icon" style="background:linear-gradient(135deg,#7c3aed,#ec4899);">⚡</div>
+        <div class="logo-text">Smart<span>Energy</span></div>
+        <span class="admin-badge-top">Admin Console</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="header-time" id="clock-display">--:--:--</div>
+      
+      <button id="open-tariff-btn" class="btn btn-outline btn-sm">
+        💰 Tariff Config
+      </button>
+
+      <button id="open-cal-btn" class="btn btn-outline btn-sm">
+        ⚖️ Calibration
+      </button>
+
+      <div class="user-pill">
+        <div class="avatar" style="background:var(--clr-accent);">A</div>
+        <div class="user-info">
+          <div class="user-name">System Admin</div>
+          <div class="user-role" style="color:var(--clr-accent-light);">Superuser</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <!-- Admin Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section-title">ADMINISTRATION</div>
+      <nav class="nav-menu">
+        <a href="dashboard.html" class="nav-item active">
+          <span class="nav-icon">📊</span>
+          <span>Grid Overview</span>
+        </a>
+        <a href="users.html" class="nav-item">
+          <span class="nav-icon">👥</span>
+          <span>User Directory</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-section-title" style="margin-top:2rem;">SYSTEM CONTROLS</div>
+      <nav class="nav-menu">
+        <a href="#" class="nav-item" id="sidebar-tariff-link">
+          <span class="nav-icon">💰</span>
+          <span>Electricity Tariff</span>
+        </a>
+        <a href="#" class="nav-item" id="sidebar-cal-link">
+          <span class="nav-icon">⚖️</span>
+          <span>Sensor Calibration</span>
+        </a>
+        <a href="../user/dashboard.html" class="nav-item" style="color:var(--clr-primary);">
+          <span class="nav-icon">🔌</span>
+          <span>Client Telemetry View</span>
+        </a>
+        <a href="../login.html" class="nav-item" id="logout-btn">
+          <span class="nav-icon">🚪</span>
+          <span>Sign Out</span>
+        </a>
+      </nav>
+
+      <div style="margin-top:auto;padding:1rem;background:var(--bg-surface);border-radius:var(--radius-md);border:1px solid var(--border-subtle);font-size:0.75rem;color:var(--text-muted);">
+        <div>Role: <strong>Administrator</strong></div>
+        <div style="margin-top:0.25rem;">Security: <strong>Firebase Protected</strong></div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Title & Summary -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+        <div>
+          <h1 style="font-size:1.75rem;font-weight:700;margin-bottom:0.25rem;">System Master Dashboard</h1>
+          <p style="color:var(--text-secondary);font-size:0.875rem;">Real-time grid consumption, anomaly detection & client device status</p>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:center;">
+          <a href="users.html" class="btn btn-primary btn-sm">
+            👥 Manage Users
+          </a>
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards Grid -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Total Registered Users</span>
+            <div class="kpi-icon" style="background:rgba(59,130,246,0.15);color:var(--clr-info);">👥</div>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-total-users">0</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="text-secondary" style="font-size:0.75rem;">Across all nodes</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Active Consumers</span>
+            <div class="kpi-icon icon-energy">✅</div>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-active-users" style="color:var(--clr-success);">0</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="badge badge-success">Approved</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Pending Approvals</span>
+            <div class="kpi-icon icon-cost">⏳</div>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-pending-users" style="color:var(--clr-warning);">0</span>
+          </div>
+          <div class="kpi-footer">
+            <a href="users.html?filter=pending" style="font-size:0.75rem;color:var(--clr-warning);">Review Requests →</a>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Online ESP32 Devices</span>
+            <div class="kpi-icon icon-volt">📡</div>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-online-devices" style="color:var(--clr-primary);">0</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="status-indicator" style="font-size:0.75rem;"><span class="dot dot-success pulse"></span> Live</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">Grid Alerts</span>
+            <div class="kpi-icon icon-curr" style="background:rgba(239,68,68,0.15);color:var(--clr-danger);">⚠️</div>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-alert-count" style="color:var(--clr-danger);">0</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="badge badge-danger" id="kpi-alert-status">All Normal</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Monitoring Cards Section -->
+      <div style="margin-top:2rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:1rem;">
+          <div>
+            <h2 style="font-size:1.3rem;font-weight:700;margin:0;">Consumer Telemetry Cards</h2>
+            <p style="font-size:0.8rem;color:var(--text-secondary);margin:0.25rem 0 0 0;">
+              Live load, voltage & power. Cards with abnormal power or current turn <strong style="color:var(--clr-danger);">Red</strong> automatically.
+            </p>
+          </div>
+
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <button class="btn btn-ghost btn-sm filter-card-btn active" data-filter="all">All</button>
+            <button class="btn btn-ghost btn-sm filter-card-btn" data-filter="online">Online</button>
+            <button class="btn btn-ghost btn-sm filter-card-btn" data-filter="alert">Alerts Only</button>
+          </div>
+        </div>
+
+        <!-- Cards Grid -->
+        <div class="user-cards-grid" id="user-cards-grid">
+          <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);">
+            Loading consumer telemetry cards...
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Tariff Configuration Modal -->
+  <div id="tariff-modal" class="modal-backdrop hidden">
+    <div class="modal" style="max-width:500px;">
+      <div class="modal-header">
+        <span class="modal-title">💰 Configure Electricity Tariff & Limits</span>
+        <button class="modal-close" id="close-tariff-modal">✕</button>
+      </div>
+      <form id="tariff-form">
+        <div class="form-group">
+          <label class="form-label" for="tariff-rate">Tariff Rate per Unit (kWh) *</label>
+          <div class="input-group">
+            <span class="input-icon">₹</span>
+            <input type="number" step="0.01" id="tariff-rate" class="form-control" required value="6.50" />
+          </div>
+          <div class="form-hint">Official utility flat rate per Unit in INR</div>
+        </div>
+
+        <div class="grid grid-2" style="gap:1rem;">
+          <div class="form-group">
+            <label class="form-label" for="consumer-type">Consumer Type</label>
+            <select id="consumer-type" class="form-control">
+              <option value="domestic">Domestic / Residential</option>
+              <option value="commercial">Commercial</option>
+              <option value="industrial">Industrial</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="tariff-currency">Currency Symbol</label>
+            <input type="text" id="tariff-currency" class="form-control" value="₹" />
+          </div>
+        </div>
+
+        <div style="margin:1rem 0;border-top:1px solid var(--border-subtle);padding-top:1rem;">
+          <div style="font-weight:600;font-size:0.9rem;margin-bottom:0.75rem;color:var(--clr-primary);">⚠️ Safety Threshold Rules</div>
+          <div class="grid grid-2" style="gap:1rem;">
+            <div class="form-group">
+              <label class="form-label" for="max-power">Max Power Limit (W)</label>
+              <input type="number" id="max-power" class="form-control" value="3000" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="max-current">Max Current Limit (A)</label>
+              <input type="number" step="0.1" id="max-current" class="form-control" value="13.0" />
+            </div>
+          </div>
+          <div class="grid grid-2" style="gap:1rem;">
+            <div class="form-group">
+              <label class="form-label" for="min-voltage">Min Voltage (V)</label>
+              <input type="number" id="min-voltage" class="form-control" value="180" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="max-voltage">Max Voltage (V)</label>
+              <input type="number" id="max-voltage" class="form-control" value="270" />
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-full" id="save-tariff-btn">
+          Save Tariff & Thresholds
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Calibration Settings Modal -->
+  <div id="calibration-modal" class="modal-backdrop hidden">
+    <div class="modal" style="max-width:500px;">
+      <div class="modal-header">
+        <span class="modal-title">⚖️ Sensor Calibration Parameters</span>
+        <button class="modal-close" id="close-cal-modal">✕</button>
+      </div>
+      <form id="calibration-form">
+        <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:1rem;">
+          Adjust software multipliers and zero-offsets to match calibrated bench meter readings.
+        </p>
+
+        <div class="grid grid-2" style="gap:1rem;">
+          <div class="form-group">
+            <label class="form-label" for="cal-v-mult">Voltage Multiplier</label>
+            <input type="number" step="0.001" id="cal-v-mult" class="form-control" value="1.000" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cal-v-off">Voltage Offset (V)</label>
+            <input type="number" step="0.1" id="cal-v-off" class="form-control" value="0.0" />
+          </div>
+        </div>
+
+        <div class="grid grid-2" style="gap:1rem;">
+          <div class="form-group">
+            <label class="form-label" for="cal-i-mult">Current Multiplier</label>
+            <input type="number" step="0.001" id="cal-i-mult" class="form-control" value="1.000" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cal-i-off">Current Offset (A)</label>
+            <input type="number" step="0.01" id="cal-i-off" class="form-control" value="0.00" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="cal-pf">Power Factor (PF)</label>
+          <input type="number" step="0.01" min="0" max="1" id="cal-pf" class="form-control" value="1.00" />
+          <div class="form-hint">Default 1.0 for purely resistive calibration loads</div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-full" id="save-cal-btn">
+          Save Sensor Calibration
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script type="module">
+    import { requireAdmin, logoutUser } from "../js/auth.js";
+    import {
+      adminWatchUsers, adminLoadUsers, renderUserCard,
+      loadSettings, saveTariff, saveCalibration, saveThresholds
+    } from "../js/admin.js";
+    import { startClock, showToast, DashboardManager } from "../js/dashboard.js";
+
+    startClock(document.getElementById("clock-display"));
+    DashboardManager.setupSidebar();
+
+    // Check admin auth
+    try {
+      await requireAdmin();
+    } catch {
+      console.warn("Running admin dashboard in preview / demo mode.");
+    }
+
+    document.getElementById("logout-btn").addEventListener("click", async (e) => {
+      e.preventDefault();
+      await logoutUser();
+      window.location.href = "../login.html";
+    });
+
+    let currentUsers = [];
+    let currentSettings = null;
+    let activeFilter = "all";
+
+    // Modals
+    const tariffModal = document.getElementById("tariff-modal");
+    const calModal    = document.getElementById("calibration-modal");
+
+    document.getElementById("open-tariff-btn").addEventListener("click", () => tariffModal.classList.remove("hidden"));
+    document.getElementById("sidebar-tariff-link").addEventListener("click", (e) => { e.preventDefault(); tariffModal.classList.remove("hidden"); });
+    document.getElementById("close-tariff-modal").addEventListener("click", () => tariffModal.classList.add("hidden"));
+
+    document.getElementById("open-cal-btn").addEventListener("click", () => calModal.classList.remove("hidden"));
+    document.getElementById("sidebar-cal-link").addEventListener("click", (e) => { e.preventDefault(); calModal.classList.remove("hidden"); });
+    document.getElementById("close-cal-modal").addEventListener("click", () => calModal.classList.add("hidden"));
+
+    tariffModal.addEventListener("click", (e) => { if (e.target === tariffModal) tariffModal.classList.add("hidden"); });
+    calModal.addEventListener("click", (e) => { if (e.target === calModal) calModal.classList.add("hidden"); });
+
+    // Load initial settings into modals
+    async function initSettings() {
+      currentSettings = await loadSettings();
+      if (currentSettings.tariff) {
+        document.getElementById("tariff-rate").value = currentSettings.tariff.ratePerUnit || 6.50;
+        document.getElementById("consumer-type").value = currentSettings.tariff.consumerType || "domestic";
+        document.getElementById("tariff-currency").value = currentSettings.tariff.symbol || "₹";
+      }
+      if (currentSettings.thresholds) {
+        document.getElementById("max-power").value = currentSettings.thresholds.maxPower || 3000;
+        document.getElementById("max-current").value = currentSettings.thresholds.maxCurrent || 13;
+        document.getElementById("min-voltage").value = currentSettings.thresholds.minVoltage || 180;
+        document.getElementById("max-voltage").value = currentSettings.thresholds.maxVoltage || 270;
+      }
+      if (currentSettings.calibration) {
+        document.getElementById("cal-v-mult").value = currentSettings.calibration.voltageMultiplier || 1.0;
+        document.getElementById("cal-v-off").value  = currentSettings.calibration.voltageOffset || 0.0;
+        document.getElementById("cal-i-mult").value = currentSettings.calibration.currentMultiplier || 1.0;
+        document.getElementById("cal-i-off").value  = currentSettings.calibration.currentOffset || 0.0;
+        document.getElementById("cal-pf").value     = currentSettings.calibration.powerFactor || 1.0;
+      }
+    }
+
+    // Save Tariff Form
+    document.getElementById("tariff-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const rate = parseFloat(document.getElementById("tariff-rate").value);
+      const consumerType = document.getElementById("consumer-type").value;
+      const symbol = document.getElementById("tariff-currency").value;
+
+      const maxPower = parseFloat(document.getElementById("max-power").value);
+      const maxCurrent = parseFloat(document.getElementById("max-current").value);
+      const minVoltage = parseFloat(document.getElementById("min-voltage").value);
+      const maxVoltage = parseFloat(document.getElementById("max-voltage").value);
+
+      try {
+        await saveTariff({ ratePerUnit: rate, consumerType, symbol, currency: "INR" });
+        await saveThresholds({ maxPower, maxCurrent, minVoltage, maxVoltage });
+        currentSettings.thresholds = { maxPower, maxCurrent, minVoltage, maxVoltage };
+        showToast("Tariff & thresholds saved successfully!", "success");
+        tariffModal.classList.add("hidden");
+        renderCards();
+      } catch (err) {
+        showToast("Error saving tariff: " + err.message, "error");
+      }
+    });
+
+    // Save Calibration Form
+    document.getElementById("calibration-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const calData = {
+        voltageMultiplier: parseFloat(document.getElementById("cal-v-mult").value),
+        voltageOffset:     parseFloat(document.getElementById("cal-v-off").value),
+        currentMultiplier: parseFloat(document.getElementById("cal-i-mult").value),
+        currentOffset:     parseFloat(document.getElementById("cal-i-off").value),
+        powerFactor:       parseFloat(document.getElementById("cal-pf").value)
+      };
+
+      try {
+        await saveCalibration(calData);
+        currentSettings.calibration = calData;
+        showToast("Sensor calibration saved to Firebase!", "success");
+        calModal.classList.add("hidden");
+      } catch (err) {
+        showToast("Error saving calibration: " + err.message, "error");
+      }
+    });
+
+    // Generate rich mock users if Firebase has none yet
+    function getDemoUsers() {
+      return [
+        {
+          uid: "demo_user_1",
+          status: "active",
+          profile: { fullName: "Rajesh Kumar", email: "rajesh@example.com", deviceId: "ESP32_001", phone: "9876543210" },
+          latest: { voltage: 231.2, current: 2.14, power: 492.3, energy_kwh: 4.25, online: true }
+        },
+        {
+          uid: "demo_user_2",
+          status: "active",
+          profile: { fullName: "Priya Sharma", email: "priya@example.com", deviceId: "ESP32_002", phone: "9876543211" },
+          latest: { voltage: 228.4, current: 14.80, power: 3380.0, energy_kwh: 8.92, online: true } // Overload alert!
+        },
+        {
+          uid: "demo_user_3",
+          status: "pending",
+          profile: { fullName: "Vikram Singh", email: "vikram@example.com", deviceId: "ESP32_003", phone: "9876543212" },
+          latest: { voltage: 0, current: 0, power: 0, energy_kwh: 0, online: false }
+        },
+        {
+          uid: "demo_user_4",
+          status: "active",
+          profile: { fullName: "Ananya Patel", email: "ananya@example.com", deviceId: "ESP32_004", phone: "9876543213" },
+          latest: { voltage: 230.1, current: 0.85, power: 195.6, energy_kwh: 1.84, online: false }
+        }
+      ];
+    }
+
+    // Render User Cards
+    function renderCards() {
+      const container = document.getElementById("user-cards-grid");
+      const thresholds = currentSettings?.thresholds || { maxPower: 3000, maxCurrent: 13, minVoltage: 180, maxVoltage: 270 };
+
+      let list = [...currentUsers];
+      if (activeFilter === "online") {
+        list = list.filter(u => u.latest?.online === true);
+      } else if (activeFilter === "alert") {
+        list = list.filter(u => {
+          const p = u.latest?.power || 0;
+          const i = u.latest?.current || 0;
+          const v = u.latest?.voltage || 0;
+          return p > thresholds.maxPower || i > thresholds.maxCurrent || (v > 0 && (v < thresholds.minVoltage || v > thresholds.maxVoltage));
+        });
+      }
+
+      if (list.length === 0) {
+        container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-muted);">No users found matching current filter.</div>`;
+        return;
+      }
+
+      container.innerHTML = list.map(u => renderUserCard(u, thresholds)).join("");
+    }
+
+    // Update KPI summary cards
+    function updateKPIs() {
+      const total = currentUsers.length;
+      const active = currentUsers.filter(u => u.status === "active").length;
+      const pending = currentUsers.filter(u => u.status === "pending").length;
+      const online = currentUsers.filter(u => u.latest?.online === true).length;
+
+      const thresholds = currentSettings?.thresholds || { maxPower: 3000, maxCurrent: 13 };
+      const alerts = currentUsers.filter(u => {
+        const p = u.latest?.power || 0;
+        const i = u.latest?.current || 0;
+        return p > thresholds.maxPower || i > thresholds.maxCurrent;
+      }).length;
+
+      document.getElementById("kpi-total-users").textContent = total;
+      document.getElementById("kpi-active-users").textContent = active;
+      document.getElementById("kpi-pending-users").textContent = pending;
+      document.getElementById("kpi-online-devices").textContent = online;
+      document.getElementById("kpi-alert-count").textContent = alerts;
+
+      const alertStatus = document.getElementById("kpi-alert-status");
+      if (alerts > 0) {
+        alertStatus.textContent = `${alerts} Overload Condition(s)`;
+        alertStatus.className = "badge badge-danger";
+      } else {
+        alertStatus.textContent = "All Systems Normal";
+        alertStatus.className = "badge badge-success";
+      }
+    }
+
+    // Filter card buttons
+    document.querySelectorAll(".filter-card-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".filter-card-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        activeFilter = btn.dataset.filter;
+        renderCards();
+      });
+    });
+
+    // Start Realtime Watcher
+    await initSettings();
+
+    try {
+      adminWatchUsers((users) => {
+        if (users && users.length > 0) {
+          currentUsers = users;
+        } else {
+          currentUsers = getDemoUsers();
+        }
+        updateKPIs();
+        renderCards();
+      });
+    } catch {
+      currentUsers = getDemoUsers();
+      updateKPIs();
+      renderCards();
+    }
+  </script>
+</body>
+</html>

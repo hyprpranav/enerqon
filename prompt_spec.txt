@@ -1,0 +1,1011 @@
+﻿<USER_REQUEST>
+MASTER PROMPT â€” SMART ENERGY MONITORING & CONSUMPTION ANALYTICS SYSTEM
+
+Build a complete, modern, responsive Smart Energy Monitoring and Consumption Cost Estimation System using ESP32 + AC Voltage Sensor + ACS712 + Firebase + USB Web Serial Dashboard.
+
+The system is intended for monitoring household AC electrical consumption continuously and presenting live electrical parameters, energy usage, estimated electricity cost, historical analytics, and user-specific data through a web dashboard.
+
+1. PROJECT OBJECTIVE
+
+Create an IoT-based energy monitoring system that:
+
+Measures AC voltage.
+Measures AC current using ACS712.
+Calculates electrical power.
+Calculates accumulated energy consumption in kWh/Units.
+Estimates electricity cost.
+Records timestamped readings.
+Displays real-time readings.
+Stores historical data in Firebase.
+Provides daily, weekly, monthly and long-term analytics.
+Identifies peak and low-consumption periods.
+Supports multiple clients/users.
+Provides separate Admin and User dashboards.
+Communicates between ESP32 and website through USB Web Serial.
+Keeps ESP32 readings and website dashboard synchronized in real time.
+
+The design should be suitable for a real prototype/product demonstration.
+
+2. TECHNOLOGY STACK
+Frontend
+
+Use:
+
+HTML5
+CSS3
+JavaScript
+Responsive UI
+Chart.js or equivalent lightweight charting library
+Web Serial API for USB communication
+
+Do NOT unnecessarily use complicated frameworks.
+
+Keep the frontend simple, modular and easy to modify.
+
+Backend / Cloud
+
+Use:
+
+Firebase Authentication
+Firebase Realtime Database or Firestore
+Firebase security rules
+Firebase hosting if required
+Hardware
+ESP32 development board
+AC Voltage Sensor LM358 V3
+ACS712 current sensor
+I2C LCD
+USB cable
+Proper protected AC input arrangement
+3. PROJECT FOLDER STRUCTURE
+
+Create the project with this structure:
+
+smart-energy-monitor/
+â”‚
+â”œâ”€â”€ index.html
+â”œâ”€â”€ login.html
+â”œâ”€â”€ register.html
+â”‚
+â”œâ”€â”€ admin/
+â”‚   â”œâ”€â”€ dashboard.html
+â”‚   â”œâ”€â”€ users.html
+â”‚   â””â”€â”€ user-details.html
+â”‚
+â”œâ”€â”€ user/
+â”‚   â”œâ”€â”€ dashboard.html
+â”‚   â”œâ”€â”€ history.html
+â”‚   â””â”€â”€ analytics.html
+â”‚
+â”œâ”€â”€ css/
+â”‚   â”œâ”€â”€ style.css
+â”‚   â”œâ”€â”€ dashboard.css
+â”‚   â””â”€â”€ responsive.css
+â”‚
+â”œâ”€â”€ js/
+â”‚   â”œâ”€â”€ firebase-config.js
+â”‚   â”œâ”€â”€ auth.js
+â”‚   â”œâ”€â”€ serial.js
+â”‚   â”œâ”€â”€ dashboard.js
+â”‚   â”œâ”€â”€ energy.js
+â”‚   â”œâ”€â”€ analytics.js
+â”‚   â””â”€â”€ admin.js
+â”‚
+â”œâ”€â”€ ESP/
+â”‚   â”œâ”€â”€ smart_energy_monitor.ino
+â”‚   â”œâ”€â”€ config.h
+â”‚   â”œâ”€â”€ sensors.h
+â”‚   â””â”€â”€ energy_calculation.h
+â”‚
+â”œâ”€â”€ assets/
+â”‚   â”œâ”€â”€ logo/
+â”‚   â””â”€â”€ icons/
+â”‚
+â””â”€â”€ README.md
+
+The ESP32 code must remain inside the ESP folder.
+
+4. USER ROLES
+
+There must be exactly TWO access levels.
+
+ROLE 1 â€” ADMIN
+
+Admin has complete system access.
+
+Admin can:
+
+View all registered users.
+View user details.
+Approve/verify client requests.
+Activate users.
+Deactivate users.
+Disable users.
+Delete users.
+Reset user passwords.
+Edit user information.
+View individual user's energy data.
+View individual user's historical data.
+View current device status.
+View connection status.
+View abnormal/high consumption alerts.
+Identify users with unusual consumption.
+Access all analytics.
+Manage tariff configuration.
+Manage sensor calibration values.
+Manage system settings.
+
+Admin dashboard must clearly show all users as cards/table entries.
+
+If a user has an abnormal/high consumption condition, display that particular user card in red.
+
+Normal users should have the normal dashboard status.
+
+5. ROLE 2 â€” USER / CLIENT
+
+Users are normal clients.
+
+A user can access ONLY their own account and their own energy data.
+
+User can view:
+
+Live voltage
+Live current
+Live power
+Today's energy
+Today's estimated cost
+Daily consumption
+Weekly consumption
+Monthly consumption
+Historical consumption
+Peak usage period
+Lowest usage period
+Connection status
+Device status
+Date/time
+Consumption charts
+Estimated electricity cost
+
+Users must NEVER be able to access another user's data.
+
+Use Firebase Authentication and database security rules to enforce this.
+
+6. LOGIN SYSTEM
+
+Create a clean login page.
+
+Fields:
+
+Email
+Password
+
+Buttons:
+
+Login
+Forgot Password
+
+After login:
+
+ADMIN â†’ Admin Dashboard
+USER â†’ User Dashboard
+
+Do not allow users to manually access the Admin Dashboard through URL manipulation.
+
+Role verification must happen through Firebase.
+
+7. USER REGISTRATION / CLIENT REQUEST
+
+Provide a registration/request form containing:
+
+Full Name
+Email
+Phone Number
+Address
+Device ID
+Optional installation information
+
+After registration:
+
+Registration Request
+        â†“
+Pending
+        â†“
+Admin Verification
+        â†“
+Approved
+        â†“
+User Account Activated
+
+Admin can approve or reject requests.
+
+8. USB CONNECTION SYSTEM
+
+The website must have a prominent CONNECT DEVICE button in the header.
+
+Example:
+
+[ âš¡ SmartEnergy ]       [ Device: Offline ] [ CONNECT DEVICE ] [ Profile ]
+
+When the user clicks:
+
+CONNECT DEVICE
+
+use the browser's Web Serial API.
+
+Flow:
+
+Click CONNECT DEVICE
+        â†“
+Browser Serial Port Selection
+        â†“
+User selects ESP32 COM port
+        â†“
+Browser permission / Allow
+        â†“
+USB Serial connection established
+        â†“
+ESP32 starts transmitting readings
+        â†“
+Website receives serial data
+        â†“
+Dashboard updates live
+
+Do NOT fake USB connectivity.
+
+Use actual Web Serial API where supported.
+
+Show:
+
+CONNECTED
+
+when successful.
+
+Show:
+
+DISCONNECTED
+
+when the cable is removed or serial communication fails.
+
+9. SERIAL DATA FORMAT
+
+ESP32 should send structured data through USB Serial.
+
+Prefer JSON.
+
+Example:
+
+{
+  "device_id": "ESP32_001",
+  "timestamp": "2026-10-07T22:30:00",
+  "voltage": 230.4,
+  "current": 1.82,
+  "power": 419.3,
+  "energy_kwh": 2.84,
+  "estimated_cost": 18.42
+}
+
+Website should parse this JSON automatically.
+
+If invalid data is received:
+
+Do not crash.
+Ignore invalid packets.
+Display a small communication warning.
+Continue listening for the next valid packet.
+10. LIVE DASHBOARD
+
+Create a professional energy monitoring dashboard.
+
+Top KPI cards:
+
+Voltage
+230.4 V
+Current
+1.82 A
+Power
+419.3 W
+Energy
+2.84 kWh
+Estimated Cost
+â‚¹18.42
+Device Status
+â— Connected
+11. LIVE DATA CHART
+
+Create a real-time chart.
+
+Allow switching between:
+
+Voltage
+Current
+Power
+
+X-axis:
+
+Time
+
+Y-axis:
+
+Measurement value.
+
+Keep the chart readable and responsive.
+
+Do not overload the chart with thousands of points.
+
+Maintain a reasonable live-data window.
+
+12. ENERGY CALCULATION
+
+The system must calculate energy from power and elapsed time.
+
+Basic calculation:
+
+Power(W) = Voltage(V) Ã— Current(A)
+
+For more accurate real AC power:
+
+Real Power â‰ˆ Voltage Ã— Current Ã— Power Factor
+
+Make Power Factor configurable.
+
+For the prototype, allow:
+
+Power Factor = 1.0
+
+as default.
+
+Energy:
+
+Energy(kWh) =
+Power(W) Ã— Time(hours) / 1000
+
+For continuous monitoring:
+
+Energy += Power Ã— Î”t / 3600000
+
+where:
+
+Î”t = elapsed time in seconds
+
+One electricity unit:
+
+1 Unit = 1 kWh
+13. CURRENT MEASUREMENT
+
+Use ACS712 for AC current measurement.
+
+The ESP32 firmware must:
+
+Read ACS712 analog output.
+Determine zero-current offset.
+Sample multiple points.
+Remove offset.
+Calculate RMS current.
+Apply calibration factor.
+Send current value to the website.
+
+Use the appropriate ACS712 sensitivity according to the actual sensor variant.
+
+Make these configurable:
+
+ACS712 sensitivity
+Zero-current offset
+Current calibration multiplier
+
+Do not hardcode values that cannot be calibrated.
+
+14. AC VOLTAGE MEASUREMENT
+
+Use the LM358-based AC voltage sensor module.
+
+The firmware must:
+
+Read the conditioned analog signal.
+Sample multiple points where applicable.
+Calculate the required AC/RMS value.
+Apply voltage calibration.
+Output the calibrated voltage.
+
+Make the following configurable:
+
+Voltage calibration multiplier
+Voltage offset
+15. CALIBRATION PAGE
+
+Create an Admin-only calibration section.
+
+Include:
+
+Voltage Calibration
+Current Calibration
+Power Factor
+Energy Reset
+Sensor Offset
+
+Example:
+
+Voltage Calibration Factor: 1.000
+Current Calibration Factor: 1.000
+Current Offset: 0
+Power Factor: 1.000
+
+Provide:
+
+SAVE CALIBRATION
+
+Do not allow normal users to change calibration settings.
+
+16. ESTIMATED COST
+
+Create a configurable tariff system.
+
+Do not hardcode one permanent electricity rate.
+
+Admin can configure:
+
+Tariff / Unit
+Consumer Type
+State
+Slab Configuration
+
+For a simple prototype:
+
+Estimated Cost = Energy(kWh) Ã— Tariff
+
+Display the result as:
+
+Estimated Cost
+
+Clearly indicate that it is an estimate and may differ from the official electricity bill.
+
+17. DAILY ANALYTICS
+
+Show:
+
+Today's Consumption
+Today's Cost
+Average Power
+Maximum Power
+Minimum Power
+Peak Usage Time
+Lowest Usage Time
+
+Example:
+
+Today's Energy       5.82 kWh
+Estimated Cost       â‚¹XX.XX
+Peak Usage           7:00 PM â€“ 9:00 PM
+Lowest Usage         2:00 AM â€“ 5:00 AM
+18. HOURLY ANALYTICS
+
+Create an hourly consumption chart.
+
+Example:
+
+12 AM â†’ 0.10 kWh
+1 AM  â†’ 0.08 kWh
+2 AM  â†’ 0.06 kWh
+...
+7 PM  â†’ 0.72 kWh
+8 PM  â†’ 0.85 kWh
+
+Automatically identify the highest-consumption hour.
+
+19. DAILY / WEEKLY / MONTHLY ANALYTICS
+
+Provide filters:
+
+Today
+Yesterday
+7 Days
+30 Days
+Custom Date
+
+Charts:
+
+Daily energy
+Weekly energy
+Monthly energy
+Cost trend
+Power trend
+20. HISTORICAL DATA
+
+Every valid reading should contain:
+
+User ID
+Device ID
+Timestamp
+Voltage
+Current
+Power
+Energy
+Estimated Cost
+
+Store historical records in Firebase.
+
+Provide date filtering.
+
+Allow users to view their historical records in a table.
+
+Example:
+
+Date       Time       Voltage   Current   Power   Energy   Cost
+07/10/26   10:00 AM   230.2V    1.20A     276W    ...      ...
+07/10/26   11:00 AM   229.8V    1.85A     425W    ...      ...
+21. DEVICE STATUS
+
+Display:
+
+Device Status: Connected
+USB Serial: Connected
+Last Reading: 2 sec ago
+Device ID: ESP32_001
+
+If data stops arriving:
+
+Device Status: Offline
+
+Use a timeout mechanism.
+
+22. ABNORMAL CONSUMPTION DETECTION
+
+Create a basic rule-based alert system.
+
+Example:
+
+If power exceeds configurable threshold:
+
+HIGH POWER CONSUMPTION
+
+If current exceeds threshold:
+
+HIGH CURRENT
+
+If voltage goes outside configured range:
+
+VOLTAGE ALERT
+
+Admin dashboard should highlight the affected user's card in red.
+
+User dashboard should show an alert banner.
+
+23. ADMIN DASHBOARD
+
+Design an admin dashboard containing:
+
+Summary cards
+Total Users
+Active Users
+Inactive Users
+Connected Devices
+Alerts
+Total Energy Today
+User management table
+
+Columns:
+
+User
+Device
+Status
+Voltage
+Current
+Power
+Today's Energy
+Alert
+Actions
+
+Actions:
+
+View
+Edit
+Reset Password
+Deactivate
+Disable
+Delete
+24. ADMIN USER CARDS
+
+Each user can also be represented as a card.
+
+Card:
+
+John Doe
+Device: ESP32_001
+
+Status: Connected
+Voltage: 230V
+Current: 2.1A
+Power: 480W
+Today's Energy: 4.2 kWh
+
+[ VIEW ]
+
+If abnormal:
+
+RED ALERT CARD
+25. USER DASHBOARD UI
+
+Keep the user dashboard simple.
+
+Header:
+
+SmartEnergy
+Device Status
+CONNECT DEVICE
+Profile
+Logout
+
+Main:
+
+Live Monitoring
+
+Then KPI cards.
+
+Then:
+
+Energy Consumption
+
+Then:
+
+Cost Analysis
+
+Then:
+
+Historical Usage
+
+Then:
+
+Peak Usage Analysis
+26. DESIGN STYLE
+
+Use a modern engineering/IoT dashboard design.
+
+Requirements:
+
+Clean
+Professional
+Minimal
+Responsive
+Desktop-first but mobile compatible
+Clear cards
+Good spacing
+Modern typography
+Proper icons
+Smooth hover effects
+Subtle animations
+No excessive gradients
+No unnecessary visual clutter
+
+Use a consistent design system.
+
+27. RESPONSIVENESS
+
+The dashboard must work on:
+
+Desktop
+Laptop
+Tablet
+Mobile
+
+For mobile:
+
+Convert sidebars into compact navigation.
+Stack KPI cards.
+Make charts horizontally scrollable if necessary.
+Keep Connect Device accessible.
+28. FIREBASE DATABASE ARCHITECTURE
+
+Use a structure similar to:
+
+users/
+    USER_ID/
+        profile/
+        deviceId/
+        status/
+
+devices/
+    DEVICE_ID/
+        ownerId/
+        status/
+        latestReading/
+
+readings/
+    USER_ID/
+        DEVICE_ID/
+            TIMESTAMP/
+                voltage
+                current
+                power
+                energy
+                estimatedCost
+                timestamp
+
+settings/
+    tariff/
+    calibration/
+    thresholds/
+
+Adapt the exact structure according to Firebase best practices.
+
+29. FIREBASE SECURITY
+
+Implement strict role-based access.
+
+Admin:
+
+Read/Write all users and system data.
+
+User:
+
+Read own profile.
+Read own device.
+Read own readings.
+
+User must not:
+
+Read another user's readings.
+Modify calibration.
+Modify tariff.
+Modify roles.
+Access admin data.
+30. ESP32 FIRMWARE
+
+Create complete ESP32 firmware inside:
+
+ESP/smart_energy_monitor.ino
+
+Firmware responsibilities:
+
+Initialize sensors
+        â†“
+Initialize LCD
+        â†“
+Initialize Serial
+        â†“
+Read voltage
+        â†“
+Read ACS712 current
+        â†“
+Calculate RMS
+        â†“
+Calculate power
+        â†“
+Calculate energy
+        â†“
+Calculate estimated cost
+        â†“
+Display on LCD
+        â†“
+Send JSON through USB Serial
+        â†“
+Repeat
+
+Use clear functions such as:
+
+readVoltage();
+readCurrent();
+calculatePower();
+calculateEnergy();
+calculateCost();
+updateLCD();
+sendSerialData();
+31. LCD DISPLAY
+
+Use the I2C LCD to display local readings.
+
+Example:
+
+V:230.4V I:1.82A
+P:419W
+
+and periodically:
+
+E:2.84kWh
+Cost:Rs XX.XX
+
+Keep the display readable.
+
+32. USB SERIAL PROTOCOL
+
+ESP32 should send one JSON object per line.
+
+Example:
+
+{"device_id":"ESP32_001","voltage":230.4,"current":1.82,"power":419.3,"energy_kwh":2.84,"estimated_cost":18.42}
+
+End every packet with:
+
+\n
+
+Website reads line-by-line.
+
+33. ERROR HANDLING
+
+Handle:
+
+USB disconnected
+Serial permission denied
+Invalid serial data
+Firebase unavailable
+Authentication failure
+Sensor reading failure
+ADC out-of-range
+Voltage abnormal
+Current abnormal
+Missing timestamps
+Duplicate readings
+
+Do not let errors crash the application.
+
+Show useful user-friendly messages.
+
+34. DEVICE IDENTIFICATION
+
+Each ESP32 should have a unique:
+
+Device ID
+
+Example:
+
+ESP32_001
+ESP32_002
+ESP32_003
+
+Admin can associate a device with a user.
+
+35. DATA SYNCHRONIZATION
+
+When USB is connected:
+
+ESP32
+ â†“
+USB Serial
+ â†“
+Browser
+ â†“
+Firebase
+ â†“
+Dashboard
+
+The dashboard should update immediately.
+
+When disconnected:
+
+Preserve already stored Firebase data.
+Show device offline.
+Do not delete previous readings.
+
+When reconnected:
+
+Continue from the current energy state.
+Synchronize latest data.
+36. FUTURE EXTENSIBILITY
+
+Design the architecture so that future features can be added:
+
+Wi-Fi communication
+Mobile app
+MQTT
+Multiple appliances
+Multiple sensors
+Smart meter integration
+AI-based consumption prediction
+Monthly bill prediction
+Appliance-level monitoring
+Energy-saving recommendations
+Solar energy monitoring
+Export CSV/PDF
+Notifications
+Email alerts
+
+Do not implement these unnecessarily now. Keep the current version simple and reliable.
+
+37. IMPORTANT SAFETY REQUIREMENT
+
+The system measures household AC mains.
+
+Never expose mains voltage directly to ESP32 GPIO.
+
+The voltage sensor must provide an appropriate conditioned output.
+
+The ACS712 high-current path must be properly rated.
+
+Use:
+
+Proper insulation
+Fuse/MCB
+Enclosure
+Rated connectors
+Proper wire gauge
+Electrical isolation
+Strain relief
+
+The USB/ESP32 low-voltage section must remain electrically safe and separated from hazardous mains connections.
+
+Do not create a UI or firmware feature that bypasses electrical safety.
+
+38. CODE QUALITY
+
+Generate complete working files.
+
+Do not provide pseudo-code where actual code is required.
+
+Use:
+
+Clear variable names
+Comments for important calculations
+Modular JavaScript
+Modular ESP32 functions
+Error handling
+Configuration constants
+No unnecessary dependencies
+
+Do not hardcode Firebase secrets into unsafe locations.
+
+Provide a clearly marked Firebase configuration section.
+
+39. FINAL USER FLOW
+
+The final application should work like this:
+
+OPEN WEBSITE
+      â†“
+LOGIN
+      â†“
+ROLE DETECTION
+      â†“
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚               â”‚
+ADMIN          USER
+â”‚               â”‚
+â†“               â†“
+Admin          User
+Dashboard      Dashboard
+â”‚               â”‚
+â”‚               â†“
+â”‚          CONNECT DEVICE
+â”‚               â†“
+â”‚        Select ESP32 COM Port
+â”‚               â†“
+â”‚          Allow Permission
+â”‚               â†“
+â”‚          USB Connected
+â”‚               â†“
+â”‚         Live Sensor Data
+â”‚               â†“
+â”‚       Voltage / Current
+â”‚               â†“
+â”‚            Power
+â”‚               â†“
+â”‚           Energy
+â”‚               â†“
+â”‚         Estimated Cost
+â”‚               â†“
+â”‚            Firebase
+â”‚               â†“
+â”‚       Historical Analytics
+â”‚
+â†“
+User Management
+Device Monitoring
+Alerts
+Calibration
+Tariff
+Analytics
+40. FINAL UI GOAL
+
+The final website must feel like a real commercial Smart Energy Monitoring Platform, not a basic student HTML page.
+
+Prioritize:
+
+Live Monitoring â†’ Accurate Measurement â†’ Energy Calculation â†’ Cost Estimation â†’ Data Storage â†’ Analytics â†’ User Management
+
+The system should be simple enough to run with the specified ESP32 hardware but structured enough to scale into a real product.
+
+Generate the complete frontend, Firebase integration, USB Web Serial communication, ESP32 firmware, energy calculation logic, authentication, role-based dashboards, database structure, calibration system, analytics and responsive UI according to this specification.
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-10-07T23:24:20+05:30.
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+The user changed setting `Model Selection` from None to Claude Sonnet 4.6 (Thinking). No need to comment on this change if the user doesn't ask about it. If reporting what model you are, please use a human readable name instead of the exact string.
+</USER_SETTINGS_CHANGE>

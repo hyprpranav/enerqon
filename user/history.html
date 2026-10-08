@@ -1,0 +1,438 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reading History — SmartEnergy Monitor</title>
+  <meta name="description" content="Detailed historical AC voltage, current, power and energy records with filtering and export." />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+  <link rel="stylesheet" href="../css/responsive.css" />
+</head>
+<body class="bg-base text-primary">
+
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <button class="mobile-menu-btn" id="menu-toggle" aria-label="Toggle navigation">☰</button>
+      <div class="logo-area">
+        <div class="logo-icon">⚡</div>
+        <div class="logo-text">Smart<span>Energy</span></div>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="header-time" id="clock-display">--:--:--</div>
+      <div class="user-pill">
+        <div class="avatar" id="user-avatar">U</div>
+        <div class="user-info">
+          <div class="user-name" id="user-display-name">Loading...</div>
+          <div class="user-role" id="user-device-badge">ESP32_001</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section-title">MONITORING</div>
+      <nav class="nav-menu">
+        <a href="dashboard.html" class="nav-item">
+          <span class="nav-icon">⚡</span>
+          <span>Live Telemetry</span>
+        </a>
+        <a href="history.html" class="nav-item active">
+          <span class="nav-icon">📜</span>
+          <span>Reading History</span>
+        </a>
+        <a href="analytics.html" class="nav-item">
+          <span class="nav-icon">📊</span>
+          <span>Energy Analytics</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-section-title" style="margin-top:2rem;">SYSTEM</div>
+      <nav class="nav-menu">
+        <a href="../login.html" class="nav-item" id="logout-btn">
+          <span class="nav-icon">🚪</span>
+          <span>Sign Out</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Title & Action Bar -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+        <div>
+          <h1 style="font-size:1.75rem;font-weight:700;margin-bottom:0.25rem;">Historical Telemetry Records</h1>
+          <p style="color:var(--text-secondary);font-size:0.875rem;">Timestamped voltage, current, power, and cumulative energy audit log</p>
+        </div>
+        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+          <button id="export-csv-btn" class="btn btn-outline btn-sm">
+            📥 Export CSV
+          </button>
+          <button id="export-json-btn" class="btn btn-ghost btn-sm" style="border:1px solid var(--border-default);">
+            💾 Export JSON
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Summary Cards -->
+      <div class="grid grid-4" style="gap:1rem;margin-bottom:1.5rem;">
+        <div class="card" style="padding:1rem;">
+          <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;">Records Displayed</div>
+          <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:var(--text-primary);" id="stat-count">0</div>
+        </div>
+        <div class="card" style="padding:1rem;">
+          <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;">Avg RMS Voltage</div>
+          <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:var(--clr-primary);" id="stat-avg-v">0 V</div>
+        </div>
+        <div class="card" style="padding:1rem;">
+          <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;">Max Peak Power</div>
+          <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:var(--clr-danger);" id="stat-max-p">0 W</div>
+        </div>
+        <div class="card" style="padding:1rem;">
+          <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;">Latest Energy Total</div>
+          <div style="font-family:var(--font-mono);font-size:1.4rem;font-weight:700;color:var(--clr-success);" id="stat-latest-e">0.00 kWh</div>
+        </div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="card" style="margin-bottom:1.5rem;padding:1.25rem;">
+        <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end;">
+          <div class="form-group" style="margin:0;min-width:140px;">
+            <label class="form-label" for="filter-start" style="font-size:0.75rem;">From Date</label>
+            <input type="date" id="filter-start" class="form-control" style="padding:0.4rem 0.6rem;font-size:0.85rem;" />
+          </div>
+
+          <div class="form-group" style="margin:0;min-width:140px;">
+            <label class="form-label" for="filter-end" style="font-size:0.75rem;">To Date</label>
+            <input type="date" id="filter-end" class="form-control" style="padding:0.4rem 0.6rem;font-size:0.85rem;" />
+          </div>
+
+          <div style="display:flex;gap:0.4rem;align-items:center;">
+            <button class="btn btn-ghost btn-sm preset-btn" data-preset="today">Today</button>
+            <button class="btn btn-ghost btn-sm preset-btn" data-preset="yesterday">Yesterday</button>
+            <button class="btn btn-ghost btn-sm preset-btn" data-preset="7d">Last 7 Days</button>
+            <button class="btn btn-ghost btn-sm preset-btn" data-preset="all">All</button>
+          </div>
+
+          <div class="form-group" style="margin:0;flex:1;min-width:200px;">
+            <label class="form-label" for="filter-search" style="font-size:0.75rem;">Keyword / Voltage Filter</label>
+            <input type="text" id="filter-search" class="form-control" placeholder="Search values or status..." style="padding:0.4rem 0.6rem;font-size:0.85rem;" />
+          </div>
+
+          <button id="apply-filter-btn" class="btn btn-primary btn-sm">
+            🔍 Apply Filter
+          </button>
+        </div>
+      </div>
+
+      <!-- Historical Records Table -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-container">
+          <table class="table" id="history-table">
+            <thead>
+              <tr>
+                <th>Date & Time</th>
+                <th>Voltage (V)</th>
+                <th>Current (A)</th>
+                <th>Power (W)</th>
+                <th>Energy (kWh)</th>
+                <th>Est. Cost</th>
+                <th>Status / Alert</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody">
+              <tr>
+                <td colspan="7" style="text-align:center;padding:2.5rem;color:var(--text-muted);">
+                  Loading historical telemetry records...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:1rem 1.5rem;border-top:1px solid var(--border-subtle);flex-wrap:wrap;gap:1rem;">
+          <div style="font-size:0.8rem;color:var(--text-muted);" id="pagination-info">
+            Showing 0 - 0 of 0 entries
+          </div>
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <button id="prev-page-btn" class="btn btn-ghost btn-sm" disabled>« Previous</button>
+            <span id="page-num" style="font-size:0.85rem;font-weight:600;padding:0 0.5rem;">Page 1</span>
+            <button id="next-page-btn" class="btn btn-ghost btn-sm" disabled>Next »</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script type="module">
+    import { requireUser, logoutUser } from "../js/auth.js";
+    import { fetchReadings, fetchLastN } from "../js/analytics.js";
+    import { startClock, showToast, DashboardManager } from "../js/dashboard.js";
+
+    startClock(document.getElementById("clock-display"));
+    DashboardManager.setupSidebar();
+
+    let allRecords = [];
+    let filteredRecords = [];
+    let currentPage = 1;
+    const pageSize = 15;
+    let uid = "demo_user";
+    let deviceId = "ESP32_001";
+
+    // Setup Auth
+    try {
+      const user = await requireUser();
+      uid = user.uid;
+      if (user.profile?.deviceId) deviceId = user.profile.deviceId;
+      if (user.profile?.fullName) {
+        document.getElementById("user-display-name").textContent = user.profile.fullName;
+        document.getElementById("user-avatar").textContent = user.profile.fullName.substring(0, 1).toUpperCase();
+      }
+    } catch (e) {
+      document.getElementById("user-display-name").textContent = "Demo Client";
+    }
+
+    document.getElementById("user-device-badge").textContent = deviceId;
+
+    document.getElementById("logout-btn").addEventListener("click", async (e) => {
+      e.preventDefault();
+      await logoutUser();
+      window.location.href = "../login.html";
+    });
+
+    // Helper: generate realistic mock history if Firebase has no records yet
+    function generateMockHistory() {
+      const records = [];
+      const now = Date.now();
+      let energyAcc = 0.42;
+
+      for (let i = 120; i >= 0; i--) {
+        const timeMs = now - (i * 15 * 60 * 1000); // every 15 mins
+        const hour = new Date(timeMs).getHours();
+        const isPeak = (hour >= 18 && hour <= 22);
+
+        const v = Math.round((228 + Math.random() * 5) * 10) / 10;
+        const i_amps = isPeak ? Math.round((2.8 + Math.random() * 1.6) * 100) / 100 : Math.round((0.8 + Math.random() * 0.9) * 100) / 100;
+        const p = Math.round(v * i_amps * 0.98 * 10) / 10;
+        energyAcc += (p * 0.25) / 1000;
+        const cost = Math.round(energyAcc * 6.50 * 100) / 100;
+
+        records.push({
+          timestamp: new Date(timeMs).toISOString(),
+          voltage: v,
+          current: i_amps,
+          power: p,
+          energy_kwh: Math.round(energyAcc * 1000) / 1000,
+          estimated_cost: cost,
+          device_id: deviceId
+        });
+      }
+      return records;
+    }
+
+    // Load Data
+    async function loadHistory() {
+      try {
+        const liveRecords = await fetchLastN(uid, deviceId, 200);
+        if (liveRecords && liveRecords.length > 0) {
+          allRecords = liveRecords.reverse();
+        } else {
+          allRecords = generateMockHistory();
+        }
+      } catch {
+        allRecords = generateMockHistory();
+      }
+
+      filteredRecords = [...allRecords];
+      updateStats();
+      renderTable();
+    }
+
+    // Update stats bar
+    function updateStats() {
+      document.getElementById("stat-count").textContent = filteredRecords.length;
+      if (filteredRecords.length === 0) {
+        document.getElementById("stat-avg-v").textContent = "0 V";
+        document.getElementById("stat-max-p").textContent = "0 W";
+        document.getElementById("stat-latest-e").textContent = "0.00 kWh";
+        return;
+      }
+      const sumV = filteredRecords.reduce((acc, r) => acc + (r.voltage || 0), 0);
+      const avgV = (sumV / filteredRecords.length).toFixed(1);
+      const maxP = Math.max(...filteredRecords.map(r => r.power || 0)).toFixed(0);
+      const latestE = filteredRecords[0].energy_kwh?.toFixed(2) || "0.00";
+
+      document.getElementById("stat-avg-v").textContent = `${avgV} V`;
+      document.getElementById("stat-max-p").textContent = `${maxP} W`;
+      document.getElementById("stat-latest-e").textContent = `${latestE} kWh`;
+    }
+
+    // Render Table Page
+    function renderTable() {
+      const tbody = document.getElementById("history-tbody");
+      const total = filteredRecords.length;
+      const totalPages = Math.ceil(total / pageSize) || 1;
+
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+
+      const startIdx = (currentPage - 1) * pageSize;
+      const endIdx = Math.min(startIdx + pageSize, total);
+      const pageData = filteredRecords.slice(startIdx, endIdx);
+
+      if (pageData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2.5rem;color:var(--text-muted);">No records found matching filters.</td></tr>`;
+      } else {
+        tbody.innerHTML = pageData.map(r => {
+          const d = new Date(r.timestamp);
+          const dateStr = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+          const timeStr = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+          const isOverPower = r.power > 3000;
+          const isOverCurr  = r.current > 13;
+          const isBadVolt   = (r.voltage < 180 || r.voltage > 270);
+          const isAlert     = isOverPower || isOverCurr || isBadVolt;
+
+          let statusBadge = `<span class="badge badge-success">Normal</span>`;
+          if (isOverPower) statusBadge = `<span class="badge badge-danger">High Power</span>`;
+          else if (isOverCurr) statusBadge = `<span class="badge badge-danger">High Current</span>`;
+          else if (isBadVolt) statusBadge = `<span class="badge badge-warning">Voltage Alert</span>`;
+
+          return `
+            <tr>
+              <td class="font-mono" style="font-size:0.82rem;">${dateStr} <span style="color:var(--text-muted);">${timeStr}</span></td>
+              <td class="font-mono">${Number(r.voltage || 0).toFixed(1)} V</td>
+              <td class="font-mono">${Number(r.current || 0).toFixed(2)} A</td>
+              <td class="font-mono font-bold" style="color:${isAlert ? 'var(--clr-danger)' : 'var(--clr-primary)'};">${Number(r.power || 0).toFixed(1)} W</td>
+              <td class="font-mono">${Number(r.energy_kwh || 0).toFixed(3)} kWh</td>
+              <td class="font-mono" style="color:var(--clr-warning);">₹${Number(r.estimated_cost || 0).toFixed(2)}</td>
+              <td>${statusBadge}</td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      document.getElementById("pagination-info").textContent = `Showing ${total === 0 ? 0 : startIdx + 1} - ${endIdx} of ${total} entries`;
+      document.getElementById("page-num").textContent = `Page ${currentPage} of ${totalPages}`;
+      document.getElementById("prev-page-btn").disabled = (currentPage <= 1);
+      document.getElementById("next-page-btn").disabled = (currentPage >= totalPages);
+    }
+
+    // Pagination Click
+    document.getElementById("prev-page-btn").addEventListener("click", () => {
+      if (currentPage > 1) { currentPage--; renderTable(); }
+    });
+    document.getElementById("next-page-btn").addEventListener("click", () => {
+      const totalPages = Math.ceil(filteredRecords.length / pageSize);
+      if (currentPage < totalPages) { currentPage++; renderTable(); }
+    });
+
+    // Preset filters
+    document.querySelectorAll(".preset-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const preset = btn.dataset.preset;
+        const now = new Date();
+
+        if (preset === "today") {
+          const todayStr = now.toISOString().substring(0, 10);
+          filteredRecords = allRecords.filter(r => r.timestamp.startsWith(todayStr));
+        } else if (preset === "yesterday") {
+          const y = new Date(now);
+          y.setDate(y.getDate() - 1);
+          const yStr = y.toISOString().substring(0, 10);
+          filteredRecords = allRecords.filter(r => r.timestamp.startsWith(yStr));
+        } else if (preset === "7d") {
+          const past = Date.now() - (7 * 24 * 3600 * 1000);
+          filteredRecords = allRecords.filter(r => new Date(r.timestamp).getTime() >= past);
+        } else {
+          filteredRecords = [...allRecords];
+        }
+        currentPage = 1;
+        updateStats();
+        renderTable();
+      });
+    });
+
+    // Apply Filter Button & Search
+    document.getElementById("apply-filter-btn").addEventListener("click", () => {
+      const startVal = document.getElementById("filter-start").value;
+      const endVal   = document.getElementById("filter-end").value;
+      const search   = document.getElementById("filter-search").value.toLowerCase().trim();
+
+      filteredRecords = allRecords.filter(r => {
+        const dStr = r.timestamp.substring(0, 10);
+        if (startVal && dStr < startVal) return false;
+        if (endVal && dStr > endVal) return false;
+        if (search) {
+          const rowText = `${r.voltage} ${r.current} ${r.power} ${r.energy_kwh} ${r.timestamp}`.toLowerCase();
+          if (!rowText.includes(search)) return false;
+        }
+        return true;
+      });
+
+      currentPage = 1;
+      updateStats();
+      renderTable();
+      showToast(`Filter applied: ${filteredRecords.length} records found.`, "info");
+    });
+
+    // Export CSV
+    document.getElementById("export-csv-btn").addEventListener("click", () => {
+      if (filteredRecords.length === 0) {
+        showToast("No records to export.", "warning");
+        return;
+      }
+      const headers = ["Timestamp", "Device ID", "Voltage (V)", "Current (A)", "Power (W)", "Energy (kWh)", "Estimated Cost (INR)"];
+      const rows = filteredRecords.map(r => [
+        `"${r.timestamp}"`,
+        `"${r.device_id || deviceId}"`,
+        r.voltage,
+        r.current,
+        r.power,
+        r.energy_kwh,
+        r.estimated_cost
+      ]);
+
+      const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `energy_telemetry_${deviceId}_${new Date().toISOString().substring(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      showToast("Telemetry CSV exported successfully!", "success");
+    });
+
+    // Export JSON
+    document.getElementById("export-json-btn").addEventListener("click", () => {
+      if (filteredRecords.length === 0) {
+        showToast("No records to export.", "warning");
+        return;
+      }
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(filteredRecords, null, 2));
+      const link = document.createElement("a");
+      link.setAttribute("href", dataStr);
+      link.setAttribute("download", `energy_telemetry_${deviceId}_${new Date().toISOString().substring(0,10)}.json`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      showToast("Telemetry JSON exported successfully!", "success");
+    });
+
+    await loadHistory();
+  </script>
+</body>
+</html>

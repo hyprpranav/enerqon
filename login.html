@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — SmartEnergy Monitor</title>
+  <meta name="description" content="Sign in to your SmartEnergy Monitor account to view live energy consumption, analytics, and estimated costs." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="assets/icons/favicon.svg" />
+</head>
+<body class="auth-page">
+
+<div class="auth-card animate-in">
+  <div class="auth-logo">
+    <div class="logo-icon">⚡</div>
+    <h1>SmartEnergy</h1>
+    <p>Energy Monitoring & Analytics Platform</p>
+  </div>
+
+  <div id="error-msg" class="alert alert-danger hidden" role="alert">
+    <span class="alert-icon">❌</span>
+    <span id="error-text"></span>
+  </div>
+
+  <form id="login-form" novalidate>
+    <div class="form-group">
+      <label class="form-label" for="email">Email Address</label>
+      <div class="input-group">
+        <span class="input-icon">✉</span>
+        <input type="email" id="email" class="form-control" placeholder="projifyra@gmail.com" required autocomplete="email" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="password">Password</label>
+      <div class="input-group">
+        <span class="input-icon">🔒</span>
+        <input type="password" id="password" class="form-control" placeholder="••••••••" required autocomplete="current-password" />
+        <button type="button" class="input-action" id="toggle-pw" aria-label="Show password">👁</button>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+      <button type="button" id="fill-admin-btn" class="btn-ghost" style="font-size:.82rem;padding:.25rem .5rem;background:none;border:none;color:var(--clr-accent-light);cursor:pointer;">
+        👑 Auto-Fill Admin
+      </button>
+      <button type="button" id="forgot-btn" class="btn-ghost" style="font-size:.82rem;padding:.25rem .5rem;background:none;border:none;color:var(--clr-primary);cursor:pointer;">
+        Forgot Password?
+      </button>
+    </div>
+
+    <button type="submit" id="login-btn" class="btn btn-primary btn-xl w-full">
+      <span id="login-spinner" class="spinner hidden"></span>
+      <span id="login-label">Sign In</span>
+    </button>
+  </form>
+
+  <div class="auth-footer" style="display:flex;flex-direction:column;gap:0.6rem;align-items:center;">
+    <div>Don't have an account? <a href="register.html">Request Access</a></div>
+    <div style="font-size:0.8rem;color:var(--text-muted);border-top:1px solid var(--border-subtle);padding-top:0.75rem;width:100%;text-align:center;">
+      👑 First time setup? <a href="admin-setup.html" style="color:var(--clr-accent-light);font-weight:600;">Initialize Admin Account</a>
+    </div>
+  </div>
+</div>
+
+<!-- Forgot password dialog -->
+<div id="forgot-modal" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <span class="modal-title">Reset Password</span>
+      <button class="modal-close" id="close-forgot">✕</button>
+    </div>
+    <p style="font-size:.875rem;color:var(--text-secondary);margin-bottom:1.25rem;">
+      Enter your email address. We'll send you a password reset link.
+    </p>
+    <div class="form-group">
+      <label class="form-label" for="reset-email">Email Address</label>
+      <input type="email" id="reset-email" class="form-control" placeholder="your@email.com" />
+    </div>
+    <div id="reset-msg" class="hidden" style="font-size:.85rem;margin-bottom:1rem;"></div>
+    <button id="send-reset" class="btn btn-primary w-full">Send Reset Email</button>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script type="module">
+  import { loginUser, resetPassword } from "./js/auth.js";
+  import { showToast } from "./js/dashboard.js";
+
+  const form       = document.getElementById("login-form");
+  const emailEl    = document.getElementById("email");
+  const passwordEl = document.getElementById("password");
+  const loginBtn   = document.getElementById("login-btn");
+  const spinner    = document.getElementById("login-spinner");
+  const labelEl    = document.getElementById("login-label");
+  const errMsg     = document.getElementById("error-msg");
+  const errText    = document.getElementById("error-text");
+
+  // Toggle password visibility
+  document.getElementById("toggle-pw").addEventListener("click", () => {
+    passwordEl.type = passwordEl.type === "password" ? "text" : "password";
+  });
+
+  // Auto-fill admin credentials
+  document.getElementById("fill-admin-btn").addEventListener("click", () => {
+    emailEl.value = "projifyra@gmail.com";
+    passwordEl.value = "927624BME001";
+  });
+
+  // Show error
+  function showError(msg) {
+    errText.textContent = msg;
+    errMsg.classList.remove("hidden");
+  }
+  function clearError() { errMsg.classList.add("hidden"); }
+
+  // Login form
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearError();
+    const email    = emailEl.value.trim();
+    const password = passwordEl.value;
+
+    if (!email || !password) { showError("Please fill in all fields."); return; }
+
+    loginBtn.disabled = true;
+    spinner.classList.remove("hidden");
+    labelEl.textContent = "Signing in...";
+
+    try {
+      const { role } = await loginUser(email, password);
+      if (role === "admin") {
+        window.location.href = "admin/dashboard.html";
+      } else {
+        window.location.href = "user/dashboard.html";
+      }
+    } catch (err) {
+      let msg = err.message;
+      if (err.message.includes("auth/") || err.code?.includes("auth/")) {
+        msg = "Invalid email or password. If you haven't initialized your Admin account yet, click 'Initialize Admin Account' below.";
+      }
+      showError(msg);
+      loginBtn.disabled = false;
+      spinner.classList.add("hidden");
+      labelEl.textContent = "Sign In";
+    }
+  });
+
+  // Forgot password
+  const modal    = document.getElementById("forgot-modal");
+  const closeBtn = document.getElementById("close-forgot");
+  const sendBtn  = document.getElementById("send-reset");
+  const resetMsg = document.getElementById("reset-msg");
+
+  document.getElementById("forgot-btn").addEventListener("click", () => modal.classList.remove("hidden"));
+  closeBtn.addEventListener("click", () => modal.classList.add("hidden"));
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.add("hidden"); });
+
+  sendBtn.addEventListener("click", async () => {
+    const email = document.getElementById("reset-email").value.trim();
+    if (!email) return;
+    try {
+      await resetPassword(email);
+      resetMsg.className = "alert alert-success";
+      resetMsg.textContent = "✅ Reset email sent! Check your inbox.";
+    } catch (e) {
+      resetMsg.className = "alert alert-danger";
+      resetMsg.textContent = `❌ ${e.message}`;
+    }
+    resetMsg.classList.remove("hidden");
+  });
+</script>
+</body>
+</html>

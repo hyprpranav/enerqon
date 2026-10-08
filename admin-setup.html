@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Initialization — SmartEnergy Monitor</title>
+  <meta name="description" content="One-click administrator account setup and initial database bootstrapping." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+  <link rel="icon" href="assets/icons/favicon.svg" />
+  <style>
+    .setup-card {
+      max-width: 520px;
+      margin: 3rem auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    }
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      background: rgba(124, 58, 237, 0.15);
+      border: 1px solid rgba(124, 58, 237, 0.4);
+      color: var(--clr-accent-light);
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+    .step-item {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+    .step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--clr-primary);
+      color: #0a0e1a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body class="auth-page">
+
+<div class="setup-card animate-in">
+  <div style="text-align:center;margin-bottom:1.75rem;">
+    <div class="badge-pill">⚡ Master Console Setup</div>
+    <h1 style="font-size:1.75rem;font-weight:700;margin-bottom:0.5rem;">Initialize Admin Account</h1>
+    <p style="font-size:0.875rem;color:var(--text-secondary);">
+      Connects to Firebase project <code style="color:var(--clr-primary);">mechproj1</code> and activates superuser privileges.
+    </p>
+  </div>
+
+  <div id="status-box" class="alert alert-info hidden" style="margin-bottom:1.5rem;">
+    <span id="status-icon">ℹ️</span>
+    <span id="status-text">Ready to initialize</span>
+  </div>
+
+  <form id="setup-form">
+    <div class="form-group">
+      <label class="form-label" for="admin-email">Admin Email</label>
+      <div class="input-group">
+        <span class="input-icon">✉️</span>
+        <input type="email" id="admin-email" class="form-control" value="projifyra@gmail.com" required autocomplete="email" />
+      </div>
+      <div class="form-hint">Designated primary administrator address</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="admin-password">Admin Password</label>
+      <div class="input-group">
+        <span class="input-icon">🔒</span>
+        <input type="password" id="admin-password" class="form-control" value="927624BME001" required minlength="6" autocomplete="new-password" />
+        <button type="button" class="input-action" id="toggle-pw" aria-label="Show password">👁</button>
+      </div>
+      <div class="form-hint">Master administrator password</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="admin-name">Administrator Display Name</label>
+      <div class="input-group">
+        <span class="input-icon">👤</span>
+        <input type="text" id="admin-name" class="form-control" value="System Administrator" required />
+      </div>
+    </div>
+
+    <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:1rem;margin-bottom:1.5rem;">
+      <div style="font-weight:600;font-size:0.85rem;margin-bottom:0.5rem;color:var(--text-primary);">This action will automatically:</div>
+      <div class="step-item">
+        <div class="step-num">1</div>
+        <div>Create or authenticate the user in Firebase Authentication.</div>
+      </div>
+      <div class="step-item">
+        <div class="step-num">2</div>
+        <div>Create the Realtime Database entry with <code>role: "admin"</code> and <code>status: "active"</code>.</div>
+      </div>
+      <div class="step-item" style="margin-bottom:0;">
+        <div class="step-num">3</div>
+        <div>Initialize default tariff (₹6.50/kWh) and safety thresholds if missing.</div>
+      </div>
+    </div>
+
+    <button type="submit" id="setup-btn" class="btn btn-primary btn-xl w-full">
+      <span id="setup-spinner" class="spinner hidden"></span>
+      <span id="setup-label">🚀 Create & Activate Admin Account</span>
+    </button>
+  </form>
+
+  <div style="text-align:center;margin-top:1.5rem;font-size:0.85rem;">
+    Already have your admin account? <a href="login.html">Return to Sign In</a>
+  </div>
+</div>
+
+<script type="module">
+  import { setupAdminAccount } from "./js/auth.js";
+  import { database, DB_PATHS, DEFAULT_SETTINGS } from "./js/firebase-config.js";
+  import { ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const form       = document.getElementById("setup-form");
+  const emailEl    = document.getElementById("admin-email");
+  const passwordEl = document.getElementById("admin-password");
+  const nameEl     = document.getElementById("admin-name");
+  const setupBtn   = document.getElementById("setup-btn");
+  const spinner    = document.getElementById("setup-spinner");
+  const labelEl    = document.getElementById("setup-label");
+  const statusBox  = document.getElementById("status-box");
+  const statusIcon = document.getElementById("status-icon");
+  const statusText = document.getElementById("status-text");
+
+  document.getElementById("toggle-pw").addEventListener("click", () => {
+    passwordEl.type = passwordEl.type === "password" ? "text" : "password";
+  });
+
+  function showStatus(msg, type = "info") {
+    statusBox.className = `alert alert-${type}`;
+    statusIcon.textContent = type === "success" ? "✅" : (type === "danger" ? "❌" : "⏳");
+    statusText.textContent = msg;
+    statusBox.classList.remove("hidden");
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = emailEl.value.trim();
+    const password = passwordEl.value;
+    const fullName = nameEl.value.trim();
+
+    if (!email || !password) {
+      showStatus("Please enter valid email and password.", "danger");
+      return;
+    }
+
+    setupBtn.disabled = true;
+    spinner.classList.remove("hidden");
+    labelEl.textContent = "Bootstrapping Admin...";
+    showStatus("Contacting Firebase Authentication...", "info");
+
+    try {
+      // Step 1: Provision Auth and RTDB Admin node
+      const { user } = await setupAdminAccount(email, password, fullName);
+      showStatus("Admin Auth & Role created! Initializing system settings...", "info");
+
+      // Step 2: Ensure default settings exist in RTDB
+      try {
+        const settingsSnap = await get(ref(database, DB_PATHS.settings()));
+        if (!settingsSnap.exists()) {
+          await set(ref(database, DB_PATHS.settings()), DEFAULT_SETTINGS);
+        }
+      } catch (e) {
+        console.warn("Settings init note:", e);
+      }
+
+      showStatus("✅ Superuser successfully configured! Redirecting to Admin Dashboard...", "success");
+      labelEl.textContent = "Redirecting...";
+
+      setTimeout(() => {
+        window.location.href = "admin/dashboard.html";
+      }, 1500);
+
+    } catch (err) {
+      console.error(err);
+      let errorMsg = err.message;
+      if (err.code === "auth/weak-password") {
+        errorMsg = "Password must be at least 6 characters long.";
+      } else if (err.code === "auth/invalid-email") {
+        errorMsg = "Invalid email format.";
+      } else if (err.code === "auth/operation-not-allowed") {
+        errorMsg = "Email/Password sign-in is disabled in Firebase Console. Please enable it under Authentication > Sign-in method.";
+      } else if (err.code === "PERMISSION_DENIED" || err.message.includes("permission_denied")) {
+        errorMsg = "Firebase Realtime Database permission denied. Please publish the Realtime Database security rules first.";
+      }
+      showStatus("Setup failed: " + errorMsg, "danger");
+      setupBtn.disabled = false;
+      spinner.classList.add("hidden");
+      labelEl.textContent = "🚀 Create & Activate Admin Account";
+    }
+  });
+</script>
+</body>
+</html>

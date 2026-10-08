@@ -1,0 +1,222 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Request Access — SmartEnergy Monitor</title>
+  <meta name="description" content="Register or request access for an IoT Smart Energy Monitoring client account." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+</head>
+<body class="auth-page">
+
+<div class="auth-card" style="max-width:540px;">
+  <!-- Header -->
+  <div class="auth-header">
+    <div class="auth-logo">⚡</div>
+    <h1 class="auth-title">Request Client Account</h1>
+    <p class="auth-subtitle">Register your energy monitoring unit for admin verification</p>
+  </div>
+
+  <!-- Status / Error message -->
+  <div id="error-msg" class="alert alert-danger hidden" style="margin-bottom:1.25rem;">
+    <span>⚠️</span> <span id="error-text"></span>
+  </div>
+
+  <!-- Registration Form -->
+  <form id="register-form" novalidate>
+    <div class="grid grid-2" style="gap:1rem;">
+      <div class="form-group">
+        <label class="form-label" for="full-name">Full Name *</label>
+        <div class="input-group">
+          <span class="input-icon">👤</span>
+          <input type="text" id="full-name" class="form-control" placeholder="Rajesh Kumar" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="email">Email Address *</label>
+        <div class="input-group">
+          <span class="input-icon">✉️</span>
+          <input type="email" id="email" class="form-control" placeholder="rajesh@example.com" required autocomplete="email" />
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="gap:1rem;">
+      <div class="form-group">
+        <label class="form-label" for="password">Password *</label>
+        <div class="input-group">
+          <span class="input-icon">🔒</span>
+          <input type="password" id="password" class="form-control" placeholder="••••••••" required minlength="6" autocomplete="new-password" />
+        </div>
+        <div class="form-hint">At least 6 characters</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="confirm-password">Confirm Password *</label>
+        <div class="input-group">
+          <span class="input-icon">🔒</span>
+          <input type="password" id="confirm-password" class="form-control" placeholder="••••••••" required minlength="6" autocomplete="new-password" />
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="gap:1rem;">
+      <div class="form-group">
+        <label class="form-label" for="phone">Phone Number</label>
+        <div class="input-group">
+          <span class="input-icon">📞</span>
+          <input type="tel" id="phone" class="form-control" placeholder="+91 98765 43210" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="device-id">Assigned Device ID *</label>
+        <div class="input-group">
+          <span class="input-icon">📟</span>
+          <input type="text" id="device-id" class="form-control" placeholder="ESP32_001" required value="ESP32_001" />
+        </div>
+        <div class="form-hint">Found on the ESP32 enclosure label</div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="address">Installation Address</label>
+      <div class="input-group">
+        <span class="input-icon">📍</span>
+        <input type="text" id="address" class="form-control" placeholder="House 42, Green Avenue, Sector 5" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="install-info">Optional Installation Information</label>
+      <textarea id="install-info" class="form-control" rows="2" placeholder="e.g. 5kW Load, 1-Phase 230V, Main DB panel installed" style="resize:vertical;"></textarea>
+    </div>
+
+    <div class="alert alert-info" style="font-size:0.8rem;margin-bottom:1.25rem;">
+      ℹ️ <strong>Approval Workflow:</strong> After submission, your request will be in <em>Pending</em> state until approved by an administrator before you can log in.
+    </div>
+
+    <button type="submit" id="submit-btn" class="btn btn-primary btn-xl w-full">
+      <span id="spinner" class="spinner hidden"></span>
+      <span id="btn-label">Submit Registration Request</span>
+    </button>
+  </form>
+
+  <!-- Success confirmation screen (hidden by default) -->
+  <div id="success-screen" class="hidden" style="text-align:center;padding:1rem 0;">
+    <div style="font-size:3.5rem;margin-bottom:1rem;">🎉</div>
+    <h2 style="font-size:1.5rem;font-weight:700;color:var(--text-primary);margin-bottom:0.5rem;">Request Submitted!</h2>
+    <p style="color:var(--text-secondary);font-size:0.9rem;line-height:1.6;margin-bottom:1.5rem;">
+      Your account request for device <strong id="succ-device" style="color:var(--clr-primary);"></strong> has been received with status:
+      <span class="badge badge-warning" style="display:inline-block;margin-left:0.25rem;">PENDING APPROVAL</span>
+    </p>
+    <div style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:1rem;text-align:left;font-size:0.85rem;margin-bottom:1.5rem;color:var(--text-secondary);">
+      <div>• <strong>Next Step:</strong> An administrator will verify your installation and approve the account.</div>
+      <div style="margin-top:0.4rem;">• You will then be able to log in with your email and password.</div>
+    </div>
+    <a href="login.html" class="btn btn-primary w-full">Return to Sign In</a>
+  </div>
+
+  <div class="auth-footer">
+    Already registered? <a href="login.html">Sign In</a>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script type="module">
+  import { registerUser } from "./js/auth.js";
+  import { showToast } from "./js/dashboard.js";
+
+  const form        = document.getElementById("register-form");
+  const fullNameEl  = document.getElementById("full-name");
+  const emailEl     = document.getElementById("email");
+  const passwordEl  = document.getElementById("password");
+  const confirmPwEl = document.getElementById("confirm-password");
+  const phoneEl     = document.getElementById("phone");
+  const deviceIdEl  = document.getElementById("device-id");
+  const addressEl   = document.getElementById("address");
+  const installEl   = document.getElementById("install-info");
+  const submitBtn   = document.getElementById("submit-btn");
+  const spinner     = document.getElementById("spinner");
+  const btnLabel    = document.getElementById("btn-label");
+  const errorMsg    = document.getElementById("error-msg");
+  const errorText   = document.getElementById("error-text");
+  const successBox  = document.getElementById("success-screen");
+  const succDevice  = document.getElementById("succ-device");
+
+  function showError(msg) {
+    errorText.textContent = msg;
+    errorMsg.classList.remove("hidden");
+  }
+
+  function hideError() {
+    errorMsg.classList.add("hidden");
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    hideError();
+
+    const fullName    = fullNameEl.value.trim();
+    const email       = emailEl.value.trim();
+    const password    = passwordEl.value;
+    const confirmPw   = confirmPwEl.value;
+    const phone       = phoneEl.value.trim();
+    const deviceId    = deviceIdEl.value.trim().toUpperCase();
+    const address     = addressEl.value.trim();
+    const installInfo = installEl.value.trim();
+
+    if (!fullName || !email || !password || !deviceId) {
+      showError("Please fill in all required fields marked with *");
+      return;
+    }
+
+    if (password.length < 6) {
+      showError("Password must be at least 6 characters long.");
+      return;
+    }
+
+    if (password !== confirmPw) {
+      showError("Passwords do not match.");
+      return;
+    }
+
+    submitBtn.disabled = true;
+    spinner.classList.remove("hidden");
+    btnLabel.textContent = "Submitting Request...";
+
+    try {
+      await registerUser({
+        fullName,
+        email,
+        password,
+        phone,
+        deviceId,
+        address,
+        installInfo
+      });
+
+      form.classList.add("hidden");
+      succDevice.textContent = deviceId;
+      successBox.classList.remove("hidden");
+      showToast("Registration submitted successfully! Pending approval.", "success");
+
+    } catch (err) {
+      let friendly = err.message;
+      if (err.message.includes("auth/email-already-in-use")) {
+        friendly = "An account with this email address already exists.";
+      } else if (err.message.includes("auth/invalid-email")) {
+        friendly = "Please enter a valid email address.";
+      } else if (err.message.includes("auth/weak-password")) {
+        friendly = "Password is too weak. Use at least 6 characters.";
+      }
+      showError(friendly);
+      submitBtn.disabled = false;
+      spinner.classList.add("hidden");
+      btnLabel.textContent = "Submit Registration Request";
+    }
+  });
+</script>
+</body>
+</html>

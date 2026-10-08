@@ -367,6 +367,21 @@
       el("device-status-dot").className = "dot dot-success pulse";
       setEl("device-status-text", "Connected");
 
+      // Cache live reading immediately for Instant Admin Inspection
+      try {
+        const liveSnapshot = {
+          voltage: d.voltage,
+          current: d.current,
+          power: d.power,
+          energy_kwh: accEnergy,
+          estimated_cost: cost,
+          timestamp: new Date().toISOString(),
+          online: true
+        };
+        localStorage.setItem("smartenergy_latest_reading", JSON.stringify(liveSnapshot));
+        localStorage.setItem(`smartenergy_reading_${userUid}`, JSON.stringify(liveSnapshot));
+      } catch(_) {}
+
       if(now - lastSaveMs >= 15000) {
         lastSaveMs = now;
         saveCloud({

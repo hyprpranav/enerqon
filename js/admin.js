@@ -48,7 +48,7 @@ export async function adminLoadUsers() {
   // 2. Fetch from Firebase Realtime Database
   let firebaseHasUsers = false;
   try {
-    const snap = await withDbTimeout(get(ref(database, DB_PATHS.allUsers())), 2500);
+    const snap = await withDbTimeout(get(ref(database, DB_PATHS.allUsers())), 1000);
     if (snap && snap.exists()) {
       firebaseHasUsers = true;
       snap.forEach(child => {
@@ -70,7 +70,7 @@ export async function adminLoadUsers() {
   const localDemoCleared = localStorage.getItem(SMARTENERGY_DEMO_CLEARED_KEY) === "true";
   let firebaseDemoCleared = false;
   try {
-    const flagSnap = await withDbTimeout(get(ref(database, FIREBASE_DEMO_CLEARED_PATH)), 1500);
+    const flagSnap = await withDbTimeout(get(ref(database, FIREBASE_DEMO_CLEARED_PATH)), 800);
     if (flagSnap && flagSnap.exists() && flagSnap.val() === true) {
       firebaseDemoCleared = true;
       // Sync to localStorage so future checks are instant
@@ -87,6 +87,12 @@ export async function adminLoadUsers() {
 export function adminWatchUsers(callback) {
   let isSubscribed = true;
 
+  // 1. Instant local notification (0ms)
+  try {
+    const local = getLocalUsers();
+    callback(local);
+  } catch (_) {}
+
   const refreshAndEmit = async () => {
     if (!isSubscribed) return;
     try {
@@ -97,7 +103,7 @@ export function adminWatchUsers(callback) {
     }
   };
 
-  // Immediate notification
+  // Cloud background refresh
   refreshAndEmit();
 
   // Listen to cross-tab storage changes

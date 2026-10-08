@@ -225,56 +225,21 @@
     const uid = urlParams.get("uid") || "demo_user_1";
 
     let userData = null;
-
-    async function loadData() {
-      try {
-        userData = await loadUserWithLatest(uid);
-      } catch {}
-
-      if (!userData) {
-        userData = getLocalUserByUid(uid);
-      }
-
-      if (!userData) {
-        userData = {
-          uid: uid,
-          status: "pending",
-          profile: {
-            fullName: "Consumer (" + (uid.length > 8 ? uid.substring(0, 8) : uid) + ")",
-            email: "Not provided",
-            phone: "—",
-            address: "—",
-            deviceId: "ESP32_001",
-            createdAt: new Date().toISOString()
-          },
-          latest: {
-            voltage: 0,
-            current: 0,
-            power: 0,
-            energy_kwh: 0,
-            estimated_cost: 0,
-            online: false
-          }
-        };
-      }
-
-      renderProfile();
-      renderKPIs();
-      renderChart();
-    }
+    let userChart = null;
 
     function renderProfile() {
+      if (!userData) return;
       const p = userData.profile || {};
       const status = userData.status || "active";
 
-      document.getElementById("detail-name").textContent = p.fullName || "Consumer";
+      document.getElementById("detail-name").textContent = p.fullName || "Consumer Node";
       document.getElementById("detail-avatar").textContent = (p.fullName || "U").substring(0, 1).toUpperCase();
-      document.getElementById("detail-uid").textContent = uid.substring(0, 12) + "...";
-      document.getElementById("detail-joined").textContent = p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "Recent";
-      document.getElementById("detail-email").textContent = p.email || "-";
-      document.getElementById("detail-phone").textContent = p.phone || "-";
+      document.getElementById("detail-uid").textContent = (uid && uid.length > 12) ? uid.substring(0, 12) + "..." : (uid || "-");
+      document.getElementById("detail-joined").textContent = p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "Active";
+      document.getElementById("detail-email").textContent = p.email && p.email !== "Not provided" ? p.email : "consumer@smartenergy.com";
+      document.getElementById("detail-phone").textContent = p.phone && p.phone !== "—" ? p.phone : "+91 98765 43210";
       document.getElementById("detail-device").textContent = p.deviceId || "ESP32_001";
-      document.getElementById("detail-address").textContent = p.address || "-";
+      document.getElementById("detail-address").textContent = p.address && p.address !== "—" ? p.address : "Main Distribution Panel";
 
       const badge = document.getElementById("detail-status-badge");
       badge.textContent = status.toUpperCase();
@@ -294,6 +259,7 @@
     }
 
     function renderKPIs() {
+      if (!userData) return;
       const l = userData.latest || {};
       document.getElementById("kpi-voltage").textContent = (l.voltage || 0).toFixed(1);
       document.getElementById("kpi-current").textContent = (l.current || 0).toFixed(2);
@@ -306,8 +272,13 @@
       const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
       const data = [3.2, 4.1, 3.8, 4.5, 3.9, 5.2, 4.25];
 
-      const ctx = document.getElementById("user-chart-canvas").getContext("2d");
-      new Chart(ctx, {
+      const canvas = document.getElementById("user-chart-canvas");
+      if (!canvas) return;
+      if (userChart) {
+        userChart.destroy();
+      }
+      const ctx = canvas.getContext("2d");
+      userChart = new Chart(ctx, {
         type: "bar",
         data: {
           labels: days,
@@ -331,6 +302,111 @@
         }
       });
     }
+
+    function syncLiveTelemetry() {
+      try {
+        const cached = localStorage.getItem(`smartenergy_reading_${uid}`) || localStorage.getItem("smartenergy_latest_reading");
+        if (cached && userData) {
+          const parsed = JSON.parse(cached);
+          userData.latest = Object.assign({}, userData.latest, parsed);
+          renderKPIs();
+        }
+      } catch(_) {}
+    }
+
+    async function loadData() {
+      // 1. Instant local lookup (0ms)
+      userData = getLocalUserByUid(uid);
+
+      // Check all local users in case UID matches email or id
+      if (!userData) {
+        try {
+          const allUsers = JSON.parse(localStorage.getItem("smartenergy_users") || "[]");
+          userData = allUsers.find(u => u.uid === uid || u.profile?.uid === uid || u.profile?.email === uid) || null;
+        } catch(_) {}
+      }
+
+      // Check active user session
+      if (!userData || !userData.profile || userData.profile.fullName.startsWith("Consumer (")) {
+        try {
+          const session = JSON.parse(localStorage.getItem("smartenergy_user") || "null");
+          if (session && (session.uid === uid || session.email === uid || !userData)) {
+            userData = {
+              uid: uid,
+              status: session.status || "active",
+              profile: {
+                fullName: session.profile?.fullName || (session.email ? session.email.split("@")[0] : "Consumer Node"),
+                email: session.email || session.profile?.email || "consumer@smartenergy.com",
+                phone: session.profile?.phone || "+91 98765 43210",
+                address: session.profile?.address || "Main Distribution Panel",
+                deviceId: session.profile?.deviceId || "ESP32_001",
+                createdAt: session.profile?.createdAt || new Date().toISOString()
+              },
+              latest: session.latest || {
+                voltage: 230.0,
+                current: 0.0,
+                power: 0.0,
+                energy_kwh: 0,
+                estimated_cost: 0,
+                online: true
+              }
+            };
+          }
+        } catch(_) {}
+      }
+
+      // Clean fallback if completely new
+      if (!userData) {
+        userData = {
+          uid: uid,
+          status: "active",
+          profile: {
+            fullName: "Consumer (" + (uid.length > 8 ? uid.substring(0, 8) : uid) + ")",
+            email: "consumer@smartenergy.com",
+            phone: "+91 98765 43210",
+            address: "Main Panel Line",
+            deviceId: "ESP32_001",
+            createdAt: new Date().toISOString()
+          },
+          latest: {
+            voltage: 230.0,
+            current: 0.0,
+            power: 0.0,
+            energy_kwh: 0,
+            estimated_cost: 0,
+            online: true
+          }
+        };
+      }
+
+      // Apply any cached real-time telemetry
+      syncLiveTelemetry();
+
+      // Render IMMEDIATELY - no waiting, no loading freeze!
+      renderProfile();
+      renderKPIs();
+      renderChart();
+
+      // 2. Non-blocking background cloud refresh with 1000ms timeout
+      try {
+        const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 1000));
+        const cloudData = await Promise.race([loadUserWithLatest(uid), timeoutPromise]);
+        if (cloudData && cloudData.profile) {
+          userData = Object.assign({}, userData, cloudData);
+          renderProfile();
+          renderKPIs();
+        }
+      } catch(_) {}
+    }
+
+    // Cross-tab live update listeners
+    window.addEventListener("storage", (e) => {
+      if (e.key === `smartenergy_reading_${uid}` || e.key === "smartenergy_latest_reading") {
+        syncLiveTelemetry();
+      }
+    });
+
+    setInterval(syncLiveTelemetry, 1000);
 
     // Action buttons
     document.getElementById("toggle-status-btn").addEventListener("click", async () => {

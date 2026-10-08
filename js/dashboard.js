@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 //  SmartEnergy Monitor — Dashboard Controller
 //  js/dashboard.js
 // ============================================================
@@ -253,19 +253,22 @@ export async function loadAllUsers() {
 }
 
 export async function loadUserWithLatest(uid) {
-  const [userSnap] = await Promise.all([
-    get(ref(database, DB_PATHS.users(uid)))
-  ]);
-  if (!userSnap.exists()) return null;
-  const data = userSnap.val();
+  try {
+    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 1200));
+    const userSnap = await Promise.race([get(ref(database, DB_PATHS.users(uid))), timeout]);
+    if (!userSnap || !userSnap.exists()) return null;
+    const data = userSnap.val();
 
-  // Load latest reading if device attached
-  const deviceId = data.profile?.deviceId;
-  if (deviceId) {
-    try {
-      const latestSnap = await get(ref(database, DB_PATHS.deviceLatest(deviceId)));
-      if (latestSnap.exists()) data.latest = latestSnap.val();
-    } catch {}
+    const deviceId = data.profile?.deviceId;
+    if (deviceId) {
+      try {
+        const devTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 800));
+        const latestSnap = await Promise.race([get(ref(database, DB_PATHS.deviceLatest(deviceId))), devTimeout]);
+        if (latestSnap && latestSnap.exists()) data.latest = latestSnap.val();
+      } catch {}
+    }
+    return { uid, ...data };
+  } catch {
+    return null;
   }
-  return { uid, ...data };
 }

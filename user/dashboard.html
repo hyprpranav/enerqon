@@ -24,7 +24,7 @@
     <div style="display:flex;align-items:center;gap:1rem;">
       <button class="mobile-menu-btn" id="menu-toggle">menu</button>
       <div class="logo-area">
-        <div class="logo-icon">Z</div>
+        <div class="logo-icon">&#9889;</div>
         <div class="logo-text">Smart<span>Energy</span></div>
       </div>
     </div>
@@ -34,8 +34,8 @@
         <span class="dot dot-danger" id="device-status-dot"></span>
         <span id="device-status-text" style="font-weight:600;font-size:0.8rem;">Offline</span>
       </div>
-      <button id="connect-btn" class="btn btn-primary btn-sm">Connect Device</button>
-      <button id="demo-btn" class="btn btn-outline btn-sm">Demo Mode</button>
+      <button id="connect-btn" class="btn btn-primary btn-sm" style="box-shadow:0 0 15px var(--clr-primary-glow);">&#128268; Connect Device</button>
+      <button id="demo-btn" class="btn btn-outline btn-sm">&#127918; Demo Mode</button>
       <div class="user-pill">
         <div class="avatar" id="user-avatar">U</div>
         <div class="user-info">
@@ -49,13 +49,13 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-section-title">MONITORING</div>
       <nav class="nav-menu">
-        <a href="dashboard.html" class="nav-item active"><span class="nav-icon">Z</span><span>Live Telemetry</span></a>
-        <a href="history.html" class="nav-item"><span class="nav-icon">H</span><span>Reading History</span></a>
-        <a href="analytics.html" class="nav-item"><span class="nav-icon">A</span><span>Energy Analytics</span></a>
+        <a href="dashboard.html" class="nav-item active"><span class="nav-icon">&#9889;</span><span>Live Telemetry</span></a>
+        <a href="history.html" class="nav-item"><span class="nav-icon">&#128220;</span><span>Reading History</span></a>
+        <a href="analytics.html" class="nav-item"><span class="nav-icon">&#128202;</span><span>Energy Analytics</span></a>
       </nav>
       <div class="sidebar-section-title" style="margin-top:2rem;">SYSTEM</div>
       <nav class="nav-menu">
-        <a href="../login.html" class="nav-item" id="logout-btn"><span class="nav-icon">X</span><span>Sign Out</span></a>
+        <a href="../login.html" class="nav-item" id="logout-btn"><span class="nav-icon">&#128682;</span><span>Sign Out</span></a>
       </nav>
       <div style="margin-top:auto;padding:1rem;background:var(--bg-surface);border-radius:var(--radius-md);border:1px solid var(--border-subtle);font-size:0.75rem;color:var(--text-muted);">
         <div>Hardware: <strong>ESP32 + ACS712</strong></div>
@@ -87,27 +87,27 @@
       </div>
       <div class="kpi-grid">
         <div class="kpi-card">
-          <div class="kpi-header"><span class="kpi-title">AC RMS Voltage</span><div class="kpi-icon icon-volt">V</div></div>
+          <div class="kpi-header"><span class="kpi-title">AC RMS Voltage</span><div class="kpi-icon icon-volt">&#9889;</div></div>
           <div class="kpi-value-row"><span class="kpi-value" id="kpi-voltage">0.0</span><span class="kpi-unit">V</span></div>
           <div class="kpi-footer"><span class="badge badge-success" id="volt-status">Waiting for data</span></div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-header"><span class="kpi-title">AC RMS Current</span><div class="kpi-icon icon-curr">A</div></div>
+          <div class="kpi-header"><span class="kpi-title">AC RMS Current</span><div class="kpi-icon icon-curr">&#128268;</div></div>
           <div class="kpi-value-row"><span class="kpi-value" id="kpi-current">0.00</span><span class="kpi-unit">A</span></div>
           <div class="kpi-footer"><span class="text-secondary" style="font-size:0.75rem;">ACS712 Sensor</span></div>
         </div>
         <div class="kpi-card" style="border-color:rgba(0,212,255,0.25);">
-          <div class="kpi-header"><span class="kpi-title">Active Power</span><div class="kpi-icon icon-power">W</div></div>
+          <div class="kpi-header"><span class="kpi-title">Active Power</span><div class="kpi-icon icon-power">&#128161;</div></div>
           <div class="kpi-value-row"><span class="kpi-value text-primary-glow" id="kpi-power">0.0</span><span class="kpi-unit">W</span></div>
           <div class="kpi-footer"><span class="text-secondary" style="font-size:0.75rem;">P = Vrms x Irms x PF</span></div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-header"><span class="kpi-title">Accumulated Energy</span><div class="kpi-icon icon-energy">E</div></div>
+          <div class="kpi-header"><span class="kpi-title">Accumulated Energy</span><div class="kpi-icon icon-energy">&#128267;</div></div>
           <div class="kpi-value-row"><span class="kpi-value" id="kpi-energy">0.000</span><span class="kpi-unit">kWh</span></div>
           <div class="kpi-footer"><span class="badge badge-primary">Units: kWh</span></div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-header"><span class="kpi-title">Estimated Cost</span><div class="kpi-icon icon-cost">Rs</div></div>
+          <div class="kpi-header"><span class="kpi-title">Estimated Cost</span><div class="kpi-icon icon-cost">&#128176;</div></div>
           <div class="kpi-value-row"><span class="kpi-value" id="kpi-cost" style="color:var(--clr-warning);">Rs 0.00</span></div>
           <div class="kpi-footer"><span class="text-secondary" style="font-size:0.75rem;">@ Active Tariff Rate</span></div>
         </div>
@@ -423,3 +423,4 @@
   </script>
 </body>
 </html>
+

@@ -411,6 +411,8 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--clr-success);
+}
+
 .chart-header {
   display: flex;
   align-items: center;

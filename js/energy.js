@@ -1,39 +1,71 @@
-﻿// ============================================================
+// ============================================================
 //  SmartEnergy Monitor — Energy Calculation Module
 //  js/energy.js
 // ============================================================
 
 export class EnergyCalculator {
   constructor(settings = {}) {
-    this.powerFactor       = settings.powerFactor       || 1.0;
-    this.ratePerUnit       = settings.ratePerUnit       || 6.50; // INR/kWh
-    this.voltageMultiplier = settings.voltageMultiplier || 1.0;
-    this.currentMultiplier = settings.currentMultiplier || 1.0;
-    this.voltageOffset     = settings.voltageOffset     || 0.0;
-    this.currentOffset     = settings.currentOffset     || 0.0;
+    this.powerFactor       = typeof settings.powerFactor === "number" ? settings.powerFactor : 0.98;
+    this.ratePerUnit       = typeof settings.ratePerUnit === "number" ? settings.ratePerUnit : 5.00; // Default ₹5.00/kWh
+    this.voltageMultiplier = typeof settings.voltageMultiplier === "number" ? settings.voltageMultiplier : 1.0;
+    this.currentMultiplier = typeof settings.currentMultiplier === "number" ? settings.currentMultiplier : 1.0;
+    this.voltageOffset     = typeof settings.voltageOffset === "number" ? settings.voltageOffset : 0.0;
+    this.currentOffset     = typeof settings.currentOffset === "number" ? settings.currentOffset : 0.0;
+    this.noiseCutoffAmps   = typeof settings.noiseCutoffAmps === "number" ? settings.noiseCutoffAmps : 0.04;
+    this.sensorModel       = settings.sensorModel || "ACS712_05B";
 
-    this.energyWh        = 0;   // Accumulated Wh since reset
-    this.lastTimestamp   = null; // Last calculation timestamp (ms)
-    this.dailyData       = {};   // { "YYYY-MM-DD": { energyWh, maxPower, minPower, readings } }
-    this.hourlyData      = {};   // { "YYYY-MM-DDTHH": energyWh }
+    // Restore accumulated energy from localStorage across browser refreshes
+    let savedWh = 0;
+    try {
+      savedWh = parseFloat(localStorage.getItem("smartenergy_accumulated_energy_wh")) || 0;
+      if (!isFinite(savedWh) || savedWh < 0) savedWh = 0;
+    } catch (_) {}
+
+    this.energyWh        = savedWh; // Persistent Wh
+    this.lastTimestamp   = null;    // Last calculation timestamp (ms)
+    this.dailyData       = {};      // { "YYYY-MM-DD": { energyWh, maxPower, minPower, readings } }
+    this.hourlyData      = {};      // { "YYYY-MM-DDTHH": energyWh }
   }
 
-  // ── Apply Calibration ────────────────────────────────────────
-  calibrate(voltage, current) {
-    const calV = (voltage * this.voltageMultiplier) + this.voltageOffset;
-    const calI = (current * this.currentMultiplier) + this.currentOffset;
-    return { voltage: Math.max(0, calV), current: Math.max(0, calI) };
+  // ── Apply Calibration (Single Execution Guard) ────────────────
+  calibrate(rawVoltage, rawCurrent) {
+    const rawV = (typeof rawVoltage === "number" && isFinite(rawVoltage)) ? rawVoltage : 0;
+    const rawI = (typeof rawCurrent === "number" && isFinite(rawCurrent)) ? rawCurrent : 0;
+
+    let calV = (rawV * this.voltageMultiplier) + this.voltageOffset;
+    let calI = (rawI * this.currentMultiplier) + this.currentOffset;
+
+    if (calV < 0 || !isFinite(calV)) calV = 0;
+    if (calI < 0 || !isFinite(calI)) calI = 0;
+
+    // Quiescent zero-current noise gate (ACS712 idle baseline)
+    if (calI < this.noiseCutoffAmps) {
+      calI = 0;
+    }
+
+    return {
+      rawVoltage: rawV,
+      rawCurrent: rawI,
+      voltage:    Math.round(calV * 10) / 10,
+      current:    Math.round(calI * 100) / 100
+    };
   }
 
-  // ── Calculate Real Power ─────────────────────────────────────
+  // ── Power Calculations ─────────────────────────────────────────
+  // 1. Apparent Power (VA) = V_rms * I_rms
+  calculateApparentPower(voltage, current) {
+    return Math.max(0, voltage * current);
+  }
+
+  // 2. Estimated Real Power (W) = V_rms * I_rms * PowerFactor
   calculatePower(voltage, current) {
-    // Real Power (W) = V_rms * I_rms * Power Factor
-    return voltage * current * this.powerFactor;
+    if (current <= 0) return 0;
+    return Math.max(0, voltage * current * this.powerFactor);
   }
 
   // ── Accumulate Energy ─────────────────────────────────────────
-  // Call this each time new data arrives. Returns incremental kWh.
-  accumulateEnergy(power, timestampMs = Date.now()) {
+  // Uses elapsed time between valid readings. Safe against gaps and refresh.
+  accumulateEnergy(powerWatts, timestampMs = Date.now()) {
     if (this.lastTimestamp === null) {
       this.lastTimestamp = timestampMs;
       return 0;
@@ -42,24 +74,33 @@ export class EnergyCalculator {
     const deltaMs = timestampMs - this.lastTimestamp;
     this.lastTimestamp = timestampMs;
 
-    if (deltaMs <= 0 || deltaMs > 60000) return 0; // ignore if gap > 1 minute
+    // Reject duplicate packets (deltaMs <= 0) or huge gaps (> 60s during disconnect)
+    if (deltaMs <= 0 || deltaMs > 60000 || !isFinite(powerWatts) || powerWatts < 0) {
+      return 0;
+    }
 
-    // Energy in Wh = Power(W) * time(h) = Power * deltaMs / 3600000
-    const deltaWh = power * (deltaMs / 3600000);
+    // Energy Increment in Wh = Power(W) * deltaMs / 3600000
+    const deltaWh = powerWatts * (deltaMs / 3600000.0);
     this.energyWh += deltaWh;
 
-    // Track daily and hourly
+    // Persist to localStorage to survive browser refreshes
+    try {
+      localStorage.setItem("smartenergy_accumulated_energy_wh", this.energyWh.toFixed(5));
+      localStorage.setItem("smartenergy_accumulated_energy_kwh", (this.energyWh / 1000).toFixed(6));
+    } catch (_) {}
+
+    // Track daily and hourly buckets
     const now     = new Date(timestampMs);
-    const dayKey  = now.toISOString().substring(0, 10);         // "YYYY-MM-DD"
-    const hourKey = now.toISOString().substring(0, 13);         // "YYYY-MM-DDTHH"
+    const dayKey  = now.toISOString().substring(0, 10);
+    const hourKey = now.toISOString().substring(0, 13);
 
     if (!this.dailyData[dayKey]) {
       this.dailyData[dayKey] = { energyWh: 0, maxPower: 0, minPower: Infinity, readings: [] };
     }
     this.dailyData[dayKey].energyWh  += deltaWh;
-    this.dailyData[dayKey].maxPower   = Math.max(this.dailyData[dayKey].maxPower, power);
-    this.dailyData[dayKey].minPower   = Math.min(this.dailyData[dayKey].minPower, power);
-    this.dailyData[dayKey].readings.push({ timestampMs, power });
+    this.dailyData[dayKey].maxPower   = Math.max(this.dailyData[dayKey].maxPower, powerWatts);
+    this.dailyData[dayKey].minPower   = Math.min(this.dailyData[dayKey].minPower, powerWatts);
+    this.dailyData[dayKey].readings.push({ timestampMs, power: powerWatts });
 
     if (!this.hourlyData[hourKey]) this.hourlyData[hourKey] = 0;
     this.hourlyData[hourKey] += deltaWh;
@@ -67,9 +108,19 @@ export class EnergyCalculator {
     return deltaWh;
   }
 
+  // ── Reset Energy ──────────────────────────────────────────────
+  resetEnergy() {
+    this.energyWh = 0;
+    this.lastTimestamp = null;
+    try {
+      localStorage.removeItem("smartenergy_accumulated_energy_wh");
+      localStorage.setItem("smartenergy_accumulated_energy_kwh", "0.0000");
+    } catch (_) {}
+  }
+
   // ── Total Energy kWh ─────────────────────────────────────────
   getTotalKwh() {
-    return this.energyWh / 1000;
+    return this.energyWh / 1000.0;
   }
 
   // ── Estimated Cost ────────────────────────────────────────────

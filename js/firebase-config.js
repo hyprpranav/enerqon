@@ -57,17 +57,20 @@ export const ROLES = {
 // ── Default Settings ─────────────────────────────────────────
 export const DEFAULT_SETTINGS = {
   tariff: {
-    ratePerUnit:  6.50,     // INR per kWh
+    ratePerUnit:  5.00,     // Default prototype tariff in INR per kWh
     currency:     "INR",
-    symbol:       "\u20b9",
+    symbol:       "₹",
     consumerType: "domestic"
   },
   calibration: {
-    voltageMultiplier:  1.000,
-    voltageOffset:      0.0,
-    currentMultiplier:  1.000,
-    currentOffset:      0.0,
-    powerFactor:        1.000
+    voltageMultiplier:  1.000, // Configurable factor (default 1.000)
+    voltageOffset:      0.0,   // Voltage offset in Volts
+    currentMultiplier:  1.000, // ACS712 current multiplier
+    currentOffset:      0.0,   // Current offset in Amperes
+    powerFactor:        0.98,  // Typical domestic power factor (0.98 - 1.00)
+    sensorModel:        "ACS712_05B", // Default 5A model (185 mV/A)
+    referenceVoltage:   229.0, // Reference multimeter AC RMS voltage
+    noiseCutoffAmps:    0.04   // Quiescent zero-current noise gate
   },
   thresholds: {
     maxPower:    3000,   // Watts — above this triggers HIGH POWER alert

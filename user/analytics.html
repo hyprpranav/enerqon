@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -74,7 +74,7 @@
           <p style="color:var(--text-secondary);font-size:0.875rem;">Hourly profiles, peak usage identification, and estimated electricity billing</p>
         </div>
         <div style="display:flex;gap:0.5rem;">
-          <span class="badge badge-primary">Tariff: ₹6.50 / Unit</span>
+          <span class="badge badge-primary">Tariff: ₹5.00 / Unit (Prototype)</span>
           <span class="badge badge-info">1-Phase 230V</span>
         </div>
       </div>
@@ -359,7 +359,7 @@
       days.push(dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }));
       const kwh = Math.round((2.4 + Math.sin(d) * 0.6 + Math.random() * 0.4) * 100) / 100;
       dailyKwh.push(kwh);
-      dailyCost.push(Math.round(kwh * 6.50 * 100) / 100);
+      dailyCost.push(Math.round(kwh * 5.00 * 100) / 100);
     }
 
     const dailyCtx = document.getElementById("daily-chart-canvas").getContext("2d");

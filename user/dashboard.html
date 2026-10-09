@@ -59,7 +59,7 @@
       </nav>
       <div style="margin-top:auto;padding:1rem;background:var(--bg-surface);border-radius:var(--radius-md);border:1px solid var(--border-subtle);font-size:0.75rem;color:var(--text-muted);">
         <div>Hardware: <strong>ESP32 + ACS712</strong></div>
-        <div style="margin-top:0.25rem;">Rate: <strong id="sidebar-tariff">6.50 / kWh</strong></div>
+        <div style="margin-top:0.25rem;">Rate: <strong id="sidebar-tariff">Rs 5.00 / kWh</strong></div>
         <div style="margin-top:0.25rem;color:#10b981;" id="fb-sync">🟢 System Ready</div>
       </div>
     </aside>
@@ -67,17 +67,42 @@
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
         <div>
           <h1 style="font-size:1.75rem;font-weight:700;margin-bottom:0.25rem;">Live AC Power Telemetry</h1>
-          <p style="color:var(--text-secondary);font-size:0.875rem;">Real-time readings from your ESP32 unit via USB</p>
         </div>
-        <div style="display:flex;gap:0.5rem;align-items:center;">
+        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+          <button id="toggle-user-diag-btn" class="btn btn-secondary btn-sm" style="display:inline-flex;align-items:center;gap:5px;">
+            <span>🛠️</span> Live Diagnostics
+          </button>
+          <button id="open-user-cal-btn" class="btn btn-warning btn-sm" style="display:inline-flex;align-items:center;gap:5px;">
+            <span>⚖️</span> Sensor Calibration
+          </button>
           <span class="badge badge-info" id="port-info-badge">Port: Not Connected</span>
           <span class="badge badge-muted">Packets: <span id="packets-count">0</span></span>
         </div>
       </div>
+
       <div id="serial-status-bar" class="bar-idle">
         <span id="status-icon">🔌</span>
         <span id="status-msg">Click <strong>Connect Device</strong> to link your ESP32 via USB cable.</span>
       </div>
+
+      <!-- Voltage Discrepancy Calibration Notice (Displayed when raw reading ~89.6V is uncalibrated) -->
+      <div id="calibration-warning-banner" class="alert alert-warning hidden" style="margin-bottom:1.5rem;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);padding:1rem;border-radius:var(--radius-md);">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:1.6rem;">⚠️</span>
+            <div>
+              <strong style="color:#f59e0b;font-size:0.95rem;">Voltage Calibration Notice: Hardware Attenuation Detected</strong>
+              <p style="margin:0.25rem 0 0 0;font-size:0.85rem;color:var(--text-secondary);">
+                Raw LM358 sensor output is ~<strong id="warn-raw-v" style="color:#fff;">89.6 V</strong> (hardware circuit attenuation). Multimeter bench reference is ~229 V. Click to align calibration.
+              </p>
+            </div>
+          </div>
+          <button id="banner-cal-btn" class="btn btn-warning btn-sm" style="font-weight:600;white-space:nowrap;">
+            ⚖️ Calibrate Voltage (~229 V)
+          </button>
+        </div>
+      </div>
+
       <div id="alert-banner" class="alert alert-danger hidden" style="margin-bottom:1.5rem;">
         <span style="font-size:1.4rem;">!</span>
         <div class="alert-banner-text">
@@ -85,33 +110,54 @@
           <p style="margin:0;font-size:0.85rem;" id="alert-msg">Safety threshold exceeded.</p>
         </div>
       </div>
+
+      <!-- KPI Grid -->
       <div class="kpi-grid">
         <div class="kpi-card">
-          <div class="kpi-header"><span class="kpi-title">AC RMS Voltage</span><div class="kpi-icon icon-volt">&#9889;</div></div>
+          <div class="kpi-header"><span class="kpi-title">AC RMS Voltage</span><div class="kpi-icon icon-volt">⚡</div></div>
           <div class="kpi-value-row"><span class="kpi-value" id="kpi-voltage">0.0</span><span class="kpi-unit">V</span></div>
-          <div class="kpi-footer"><span class="badge badge-success" id="volt-status">Waiting for data</span></div>
+          <div class="kpi-footer" style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="badge badge-success" id="volt-status">Waiting for data</span>
+            <span class="badge badge-info" id="volt-cal-badge" style="display:none;">Raw 1.0x</span>
+          </div>
         </div>
+
         <div class="kpi-card">
-          <div class="kpi-header"><span class="kpi-title">AC RMS Current</span><div class="kpi-icon icon-curr">&#128268;</div></div>
+          <div class="kpi-header"><span class="kpi-title">AC RMS Current</span><div class="kpi-icon icon-curr">🔌</div></div>
           <div class="kpi-value-row"><span class="kpi-value" id="kpi-current">0.00</span><span class="kpi-unit">A</span></div>
-          <div class="kpi-footer"><span class="text-secondary" style="font-size:0.75rem;">ACS712 Sensor</span></div>
+          <div class="kpi-footer" style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="text-secondary" style="font-size:0.75rem;">ACS712 True RMS</span>
+            <span class="badge badge-muted" id="current-model-badge">5A Sensor</span>
+          </div>
         </div>
+
         <div class="kpi-card" style="border-color:rgba(0,212,255,0.25);">
-          <div class="kpi-header"><span class="kpi-title">Active Power</span><div class="kpi-icon icon-power">&#128161;</div></div>
+          <div class="kpi-header"><span class="kpi-title">Active Real Power</span><div class="kpi-icon icon-power">💡</div></div>
           <div class="kpi-value-row"><span class="kpi-value text-primary-glow" id="kpi-power">0.0</span><span class="kpi-unit">W</span></div>
-          <div class="kpi-footer"><span class="text-secondary" style="font-size:0.75rem;">P = Vrms x Irms x PF</span></div>
+          <div class="kpi-footer">
+            <span class="text-secondary" style="font-size:0.75rem;">P = Vrms × Irms × PF | Apparent: <strong id="kpi-apparent-power" style="color:#38bdf8;">0.0 VA</strong></span>
+          </div>
         </div>
+
         <div class="kpi-card">
-          <div class="kpi-header"><span class="kpi-title">Accumulated Energy</span><div class="kpi-icon icon-energy">&#128267;</div></div>
-          <div class="kpi-value-row"><span class="kpi-value" id="kpi-energy">0.000</span><span class="kpi-unit">kWh</span></div>
-          <div class="kpi-footer"><span class="badge badge-primary">Units: kWh</span></div>
+          <div class="kpi-header"><span class="kpi-title">Accumulated Energy</span><div class="kpi-icon icon-energy">🔋</div></div>
+          <div class="kpi-value-row"><span class="kpi-value" id="kpi-energy">0.0000</span><span class="kpi-unit">kWh</span></div>
+          <div class="kpi-footer" style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="badge badge-primary">Units: kWh</span>
+            <button id="reset-energy-btn" class="btn btn-ghost btn-sm" style="padding:0.1rem 0.5rem;font-size:0.7rem;color:var(--text-muted);" title="Reset local accumulated energy">↺ Reset</button>
+          </div>
         </div>
+
         <div class="kpi-card">
-          <div class="kpi-header"><span class="kpi-title">Estimated Cost</span><div class="kpi-icon icon-cost">&#128176;</div></div>
+          <div class="kpi-header"><span class="kpi-title">Estimated Cost</span><div class="kpi-icon icon-cost">💰</div></div>
           <div class="kpi-value-row"><span class="kpi-value" id="kpi-cost" style="color:var(--clr-warning);">Rs 0.00</span></div>
-          <div class="kpi-footer"><span class="text-secondary" style="font-size:0.75rem;">@ Active Tariff Rate</span></div>
+          <div class="kpi-footer">
+            <span class="text-secondary" style="font-size:0.75rem;" id="cost-tariff-label">@ ₹5.00 / Unit (Flat Rate)</span>
+          </div>
         </div>
       </div>
+
+      <!-- Real-Time Waveform Chart -->
       <div class="chart-card" style="margin-top:1.75rem;">
         <div class="chart-header">
           <div>
@@ -126,13 +172,70 @@
         </div>
         <div style="height:300px;position:relative;"><canvas id="live-chart"></canvas></div>
       </div>
+
+      <!-- Live Hardware Telemetry Diagnostics & Live Debug Drawer (Collapsible) -->
+      <div id="user-diagnostics-card" class="card hidden" style="margin-top:1.75rem;border-color:rgba(0,212,255,0.3);background:linear-gradient(180deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98));">
+        <div class="card-header" style="border-bottom:1px solid var(--border-subtle);padding-bottom:0.75rem;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:1.2rem;">🛠️</span>
+            <div>
+              <h3 class="card-title" style="margin:0;font-size:1rem;">Hardware Telemetry Diagnostics & Live Debug</h3>
+              <p style="margin:0;font-size:0.75rem;color:var(--text-secondary);">Direct stream inspection of incoming serial packets, mathematical scaling & sensor integrity</p>
+            </div>
+          </div>
+          <span class="badge badge-success" id="diag-link-badge">USB Web Serial</span>
+        </div>
+        <div style="padding-top:1rem;">
+          <div style="margin-bottom:1rem;background:rgba(0,0,0,0.45);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:0.75rem;">
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.3rem;">Raw Serial Packet String (Verbatim from USB Port):</div>
+            <div id="diag-raw-packet" class="font-mono" style="font-size:0.85rem;color:#38bdf8;word-break:break-all;">Waiting for live USB data...</div>
+          </div>
+          <div class="grid grid-3" style="gap:1rem;font-size:0.85rem;">
+            <div style="background:var(--bg-surface);padding:0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+              <div style="color:var(--text-muted);font-size:0.75rem;font-weight:600;">VOLTAGE TELEMETRY</div>
+              <div style="margin-top:0.35rem;">Raw Received: <strong id="diag-raw-v" class="font-mono">0.0 V</strong></div>
+              <div style="margin-top:0.2rem;color:var(--clr-success);font-weight:600;">Calibrated RMS: <strong id="diag-corr-v" class="font-mono">0.0 V</strong></div>
+              <div style="margin-top:0.2rem;font-size:0.75rem;color:var(--text-muted);">Scaling: <span id="diag-v-mult">1.000</span>x (Offset: <span id="diag-v-off">0.0</span>V)</div>
+              <div style="margin-top:0.3rem;font-size:0.72rem;color:var(--text-muted);">Source: LM358 module analog signal</div>
+            </div>
+            <div style="background:var(--bg-surface);padding:0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+              <div style="color:var(--text-muted);font-size:0.75rem;font-weight:600;">CURRENT TELEMETRY</div>
+              <div style="margin-top:0.35rem;">Raw Received: <strong id="diag-raw-i" class="font-mono">0.00 A</strong></div>
+              <div style="margin-top:0.2rem;color:var(--clr-success);font-weight:600;">Calibrated RMS: <strong id="diag-corr-i" class="font-mono">0.00 A</strong></div>
+              <div style="margin-top:0.2rem;font-size:0.75rem;color:var(--text-muted);">Model: <span id="diag-sensor-model">ACS712_05B</span> (Mult: <span id="diag-i-mult">1.000</span>)</div>
+              <div style="margin-top:0.3rem;font-size:0.72rem;color:var(--text-muted);">Source: ACS712 Hall-effect sensor</div>
+            </div>
+            <div style="background:var(--bg-surface);padding:0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+              <div style="color:var(--text-muted);font-size:0.75rem;font-weight:600;">POWER ANALYSIS</div>
+              <div style="margin-top:0.35rem;">Apparent Power: <strong id="diag-apparent-p" class="font-mono">0.0 VA</strong></div>
+              <div style="margin-top:0.2rem;color:var(--clr-warning);font-weight:600;">Est. Real Power: <strong id="diag-real-p" class="font-mono">0.0 W</strong></div>
+              <div style="margin-top:0.2rem;font-size:0.75rem;color:var(--text-muted);">Power Factor: <span id="diag-pf">0.98</span></div>
+              <div style="margin-top:0.3rem;font-size:0.72rem;color:var(--text-muted);">Model: P = V_rms × I_rms × PF</div>
+            </div>
+          </div>
+          <div class="grid grid-2" style="gap:1rem;margin-top:1rem;font-size:0.85rem;">
+            <div style="background:var(--bg-surface);padding:0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+              <div style="color:var(--text-muted);font-size:0.75rem;font-weight:600;">ENERGY COMPARISON</div>
+              <div style="margin-top:0.3rem;">ESP32 On-board Energy: <span id="diag-esp-energy" class="font-mono">0.0000 kWh</span> (Uncalibrated)</div>
+              <div style="margin-top:0.2rem;color:#38bdf8;font-weight:600;">Web Calibrated Energy: <span id="diag-web-energy" class="font-mono">0.0000 kWh</span> (Authoritative)</div>
+            </div>
+            <div style="background:var(--bg-surface);padding:0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+              <div style="color:var(--text-muted);font-size:0.75rem;font-weight:600;">STREAM HEALTH & ERRORS</div>
+              <div style="margin-top:0.3rem;">Valid Packets: <strong id="diag-packets" class="font-mono">0</strong> | Errors: <span id="diag-errors" class="font-mono">0</span></div>
+              <div style="margin-top:0.2rem;">Last Packet Time: <span id="diag-time" class="font-mono">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session Summary & Hardware Diagnostics Grid -->
       <div class="grid grid-2" style="gap:1.5rem;margin-top:1.75rem;">
         <div class="card">
           <div class="card-header"><h3 class="card-title">Session Summary</h3><span class="badge badge-info">Live</span></div>
           <div class="stats-table">
             <div class="stat-row"><span class="stat-label">Max Power:</span><span class="stat-val font-mono" id="stat-max-power">0 W</span></div>
             <div class="stat-row"><span class="stat-label">Min Power:</span><span class="stat-val font-mono" id="stat-min-power">0 W</span></div>
-            <div class="stat-row"><span class="stat-label">Total Energy:</span><span class="stat-val font-mono" id="stat-energy">0.000 kWh</span></div>
+            <div class="stat-row"><span class="stat-label">Total Energy:</span><span class="stat-val font-mono" id="stat-energy">0.0000 kWh</span></div>
             <div class="stat-row"><span class="stat-label">Estimated Cost:</span><span class="stat-val font-mono" id="stat-cost">Rs 0.00</span></div>
             <div class="stat-row"><span class="stat-label">Packets received:</span><span class="stat-val font-mono" id="stat-packets">0</span></div>
           </div>
@@ -153,6 +256,120 @@
         </div>
       </div>
     </main>
+  </div>
+
+  <!-- Sensor Calibration Modal (User Dashboard) -->
+  <div id="user-calibration-modal" class="modal-backdrop hidden">
+    <div class="modal" style="max-width:540px;">
+      <div class="modal-header">
+        <span class="modal-title">⚖️ Sensor Calibration Parameters</span>
+        <button class="modal-close" id="close-user-cal-modal">✕</button>
+      </div>
+      <form id="user-calibration-form">
+        <p style="font-size:0.83rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.4;">
+          The ESP32 calculates RMS values internally across 10 AC cycles. Configure software multipliers to align website readings with physical reference multimeters.
+        </p>
+
+        <!-- Multimeter Quick Comparison Tool -->
+        <div style="background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.25);border-radius:var(--radius-md);padding:0.85rem;margin-bottom:1.25rem;">
+          <div style="font-weight:600;font-size:0.85rem;color:var(--clr-primary);margin-bottom:0.5rem;display:flex;align-items:center;gap:6px;">
+            <span>📐</span> Multimeter Reference Alignment
+          </div>
+          <div class="grid grid-2" style="gap:0.75rem;">
+            <div>
+              <label class="form-label" style="font-size:0.75rem;" for="user-cal-ref-v">Reference Multimeter (V) *</label>
+              <input type="number" step="0.1" id="user-cal-ref-v" class="form-control" value="229.0" />
+            </div>
+            <div>
+              <label class="form-label" style="font-size:0.75rem;">Live Raw Sensor Reading</label>
+              <div style="height:38px;display:flex;align-items:center;padding:0 0.75rem;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);font-weight:700;font-family:monospace;">
+                <span id="user-cal-raw-v">89.6</span>&nbsp;V
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:0.6rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+            <div style="font-size:0.75rem;color:var(--text-secondary);">
+              Recommended Factor: <strong id="user-cal-computed-factor" style="color:var(--clr-primary);font-family:monospace;">2.556</strong> (229.0 / 89.6)
+            </div>
+            <button type="button" id="user-apply-bench-factor-btn" class="btn btn-outline btn-sm" style="font-size:0.75rem;padding:0.25rem 0.6rem;">
+              Apply Recommended Factor
+            </button>
+          </div>
+        </div>
+
+        <div style="font-weight:600;font-size:0.85rem;color:var(--text-primary);margin-bottom:0.4rem;">
+          1. AC Voltage Calibration (LM358 Module)
+        </div>
+        <div class="grid grid-2" style="gap:1rem;">
+          <div class="form-group">
+            <label class="form-label" for="user-cal-v-mult">Voltage Multiplier (K_v)</label>
+            <input type="number" step="0.001" id="user-cal-v-mult" class="form-control" value="1.000" />
+            <div class="form-hint">Default 1.000 | Recommended ~2.556</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="user-cal-v-off">Voltage Offset (V)</label>
+            <input type="number" step="0.1" id="user-cal-v-off" class="form-control" value="0.0" />
+            <div class="form-hint">Linear shift (default 0.0V)</div>
+          </div>
+        </div>
+        <div style="background:var(--bg-surface);padding:0.5rem 0.75rem;border-radius:var(--radius-sm);margin-bottom:1rem;font-size:0.8rem;display:flex;justify-content:space-between;">
+          <span style="color:var(--text-muted);">Voltage Preview:</span>
+          <span>Raw: <span id="user-cal-prev-raw-v" class="font-mono">89.6 V</span> ➔ <strong id="user-cal-prev-corr-v" class="font-mono" style="color:var(--clr-success);">89.6 V</strong></span>
+        </div>
+
+        <div style="font-weight:600;font-size:0.85rem;color:var(--text-primary);margin-bottom:0.4rem;">
+          2. AC Current Calibration (ACS712 Sensor)
+        </div>
+        <div class="grid grid-2" style="gap:1rem;">
+          <div class="form-group">
+            <label class="form-label" for="user-cal-sensor-model">Sensor Model</label>
+            <select id="user-cal-sensor-model" class="form-control">
+              <option value="ACS712_05B">ACS712-05B (5A — 185 mV/A)</option>
+              <option value="ACS712_20A">ACS712-20A (20A — 100 mV/A)</option>
+              <option value="ACS712_30A">ACS712-30A (30A — 66 mV/A)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="user-cal-i-mult">Current Multiplier (K_i)</label>
+            <input type="number" step="0.001" id="user-cal-i-mult" class="form-control" value="1.000" />
+          </div>
+        </div>
+        <div class="grid grid-2" style="gap:1rem;">
+          <div class="form-group">
+            <label class="form-label" for="user-cal-i-off">Current Offset (A)</label>
+            <input type="number" step="0.01" id="user-cal-i-off" class="form-control" value="0.00" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="user-cal-pf">Assumed Power Factor (PF)</label>
+            <input type="number" step="0.01" min="0.5" max="1.0" id="user-cal-pf" class="form-control" value="0.98" />
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-full" id="save-user-cal-btn">
+          💾 Save Calibration Parameters
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Reset Energy Confirmation Modal -->
+  <div id="reset-energy-modal" class="modal-backdrop hidden">
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header">
+        <span class="modal-title">↺ Reset Accumulated Energy</span>
+        <button class="modal-close" id="close-reset-energy-modal">✕</button>
+      </div>
+      <div style="margin-bottom:1.25rem;">
+        <p style="font-size:0.9rem;color:var(--text-secondary);line-height:1.5;">
+          Are you sure you want to reset accumulated energy and cost counters back to <strong>0.0000 kWh</strong>?
+        </p>
+      </div>
+      <div style="display:flex;gap:0.75rem;">
+        <button type="button" id="cancel-reset-energy-btn" class="btn btn-secondary w-full">Cancel</button>
+        <button type="button" id="confirm-reset-energy-btn" class="btn btn-danger w-full">Confirm Reset</button>
+      </div>
+    </div>
+  </div>
   </div>
   <div id="toast-container"></div>
   <script type="module">
@@ -180,7 +397,7 @@
     }
 
     const SESSION_KEY = "smartenergy_current_user";
-    let userUid = "local_user", deviceId = "ESP32_001", tariffRate = 6.50;
+    let userUid = "local_user", deviceId = "ESP32_001", tariffRate = 5.00;
 
     function el(id) { return document.getElementById(id); }
     function setEl(id, v) { const e = el(id); if(e) e.textContent = v; }
@@ -252,7 +469,7 @@
       data: {
         labels: labels,
         datasets: [{
-          label: "Power (W)",
+          label: "Active Power (W)",
           data: chartData,
           borderColor: COLORS.power,
           backgroundColor: COLORS.power + "18",
@@ -281,22 +498,62 @@
         metric = btn.dataset.metric;
         chart.data.datasets[0].borderColor = COLORS[metric];
         chart.data.datasets[0].backgroundColor = COLORS[metric] + "18";
-        chart.data.datasets[0].label = { power:"Power (W)", voltage:"Voltage (V)", current:"Current (A)" }[metric];
+        chart.data.datasets[0].label = { power:"Active Power (W)", voltage:"RMS Voltage (V)", current:"RMS Current (A)" }[metric];
         labels.length = 0; chartData.length = 0;
         chart.update();
       });
     });
 
-    // ── 5. STATE & TELEMETRY CALCULATOR ──
-    let accEnergy = 0, lastEnergyMs = 0, packetCount = 0, maxP = 0, minP = Infinity, lastSaveMs = 0;
+    // ── 5. CALIBRATION & TELEMETRY ENGINE ──
+    const DEFAULT_CALIBRATION = {
+      voltageMultiplier: 1.000,
+      voltageOffset:     0.0,
+      currentMultiplier: 1.000,
+      currentOffset:     0.0,
+      powerFactor:       0.98,
+      sensorModel:       "ACS712_05B",
+      referenceVoltage:  229.0,
+      noiseCutoffAmps:   0.04
+    };
+
+    let calSettings = Object.assign({}, DEFAULT_CALIBRATION);
+    try {
+      const savedCal = localStorage.getItem("smartenergy_calibration");
+      if (savedCal) calSettings = Object.assign(calSettings, JSON.parse(savedCal));
+    } catch(_) {}
+
+    // Restore accumulated energy from localStorage across browser refreshes
+    let accEnergy = 0.0;
+    try {
+      const savedEnergy = parseFloat(localStorage.getItem(`smartenergy_acc_energy_${deviceId}`) || localStorage.getItem("smartenergy_acc_energy_kwh"));
+      if (isFinite(savedEnergy) && savedEnergy >= 0) accEnergy = savedEnergy;
+    } catch(_) {}
+
+    let lastEnergyMs = 0, packetCount = 0, streamErrors = 0, maxP = 0, minP = Infinity, lastSaveMs = 0;
+    let latestRawVoltage = 89.6, latestRawCurrent = 0.06;
+
+    function updateCalBadges() {
+      const vBadge = el("volt-cal-badge");
+      if (vBadge) {
+        if (Math.abs(calSettings.voltageMultiplier - 1.0) > 0.001 || Math.abs(calSettings.voltageOffset) > 0.01) {
+          vBadge.style.display = "inline-flex";
+          vBadge.textContent = `Cal: ${calSettings.voltageMultiplier.toFixed(3)}x`;
+        } else {
+          vBadge.style.display = "none";
+        }
+      }
+      const modelBadge = el("current-model-badge");
+      if (modelBadge) {
+        modelBadge.textContent = `${calSettings.sensorModel.replace("ACS712_", "")} Model`;
+      }
+    }
+    updateCalBadges();
 
     async function saveCloud(reading) {
-      // 1. Always cache locally per user
       try {
         localStorage.setItem(`smartenergy_reading_${userUid}`, JSON.stringify(reading));
       } catch(_) {}
 
-      // 2. Non-blocking Firebase push with 1500ms timeout
       if(db) {
         try {
           const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 1500));
@@ -314,51 +571,109 @@
       }
     }
 
-    function handleReading(d) {
+    // ── TELEMETRY INGESTION (SINGLE-PASS CALIBRATION & INTEGRITY CHECK) ──
+    function handleReading(d, rawPacketString = "") {
       packetCount++;
       const now = Date.now();
-      if(lastEnergyMs > 0) {
-        accEnergy += (d.power || 0) * (now - lastEnergyMs) / 3600000000;
+
+      // Extract raw telemetry fields directly from packet
+      const rawV = (typeof d.voltage === "number" && isFinite(d.voltage)) ? d.voltage : 0.0;
+      const rawI = (typeof d.current === "number" && isFinite(d.current)) ? d.current : 0.0;
+      const rawP = (typeof d.power === "number" && isFinite(d.power)) ? d.power : 0.0;
+      const rawEspEnergy = (typeof d.energy_kwh === "number" && isFinite(d.energy_kwh)) ? d.energy_kwh : 0.0;
+
+      latestRawVoltage = rawV;
+      latestRawCurrent = rawI;
+
+      // 1. Single Application Calibration Formula (STEP 3 & STEP 4)
+      let corrV = (rawV * calSettings.voltageMultiplier) + calSettings.voltageOffset;
+      if (corrV < 0 || !isFinite(corrV)) corrV = 0.0;
+      corrV = Math.round(corrV * 10) / 10;
+
+      let corrI = (rawI * calSettings.currentMultiplier) + calSettings.currentOffset;
+      if (corrI < 0 || !isFinite(corrI)) corrI = 0.0;
+      // Quiescent zero-current noise gate (eliminates ACS712 zero-current noise hum)
+      if (corrI < (calSettings.noiseCutoffAmps || 0.04)) corrI = 0.0;
+      corrI = Math.round(corrI * 100) / 100;
+
+      // 2. Power Calculations: Apparent Power (VA) vs Estimated Real Power (W) (STEP 5)
+      const apparentVA = Math.round((corrV * corrI) * 10) / 10;
+      const estimatedRealW = Math.round((apparentVA * (calSettings.powerFactor || 0.98)) * 10) / 10;
+
+      // 3. Energy Accumulation using Elapsed Time between Valid Readings (STEP 6)
+      if (lastEnergyMs > 0) {
+        const deltaMs = now - lastEnergyMs;
+        // Prevent duplicate accumulation (deltaMs <= 0) and disconnect jumps (deltaMs > 60s)
+        if (deltaMs > 0 && deltaMs <= 60000 && isFinite(estimatedRealW) && estimatedRealW > 0) {
+          const deltaKwh = (estimatedRealW * (deltaMs / 1000.0)) / 3600000.0;
+          accEnergy += deltaKwh;
+          try {
+            localStorage.setItem(`smartenergy_acc_energy_${deviceId}`, accEnergy.toFixed(6));
+            localStorage.setItem("smartenergy_acc_energy_kwh", accEnergy.toFixed(6));
+          } catch(_) {}
+        }
       }
       lastEnergyMs = now;
+
+      // 4. Electricity Cost (STEP 7)
       const cost = accEnergy * tariffRate;
 
-      setEl("kpi-voltage", d.voltage > 0 ? d.voltage.toFixed(1) : "0.0");
-      setEl("kpi-current", d.current > 0 ? d.current.toFixed(2) : "0.00");
-      setEl("kpi-power",   d.power   > 0 ? d.power.toFixed(1)   : "0.0");
+      // 5. Update KPI Cards (STEP 11)
+      setEl("kpi-voltage", corrV > 0 ? corrV.toFixed(1) : "0.0");
+      setEl("kpi-current", corrI > 0 ? corrI.toFixed(2) : "0.00");
+      setEl("kpi-power",   estimatedRealW > 0 ? estimatedRealW.toFixed(1) : "0.0");
+      setEl("kpi-apparent-power", apparentVA.toFixed(1) + " VA");
       setEl("kpi-energy",  accEnergy.toFixed(4));
       setEl("kpi-cost",    "Rs " + cost.toFixed(2));
 
+      // Voltage range status
       const vs = el("volt-status");
       if(vs) {
-        if(d.voltage <= 0) { vs.textContent = "No signal"; vs.className = "badge badge-muted"; }
-        else if(d.voltage < 180 || d.voltage > 270) { vs.textContent = "Out of Range"; vs.className = "badge badge-danger"; }
+        if(corrV <= 0) { vs.textContent = "No Signal"; vs.className = "badge badge-muted"; }
+        else if(corrV < 180 || corrV > 270) { vs.textContent = "Out of Range"; vs.className = "badge badge-danger"; }
         else { vs.textContent = "Normal 230V"; vs.className = "badge badge-success"; }
       }
 
-      if(d.power > maxP) maxP = d.power;
-      if(d.power < minP) minP = d.power;
+      // 6. Voltage Discrepancy Calibration Warning (STEP 9)
+      // Displays warning if raw reading shows hardware attenuation (~89.6V) and factor is uncalibrated (~1.000)
+      const calWarn = el("calibration-warning-banner");
+      if (calWarn) {
+        const isAttenuated = (rawV > 40 && rawV < 160);
+        const isUncalibrated = Math.abs(calSettings.voltageMultiplier - 1.0) < 0.05;
+        if (isAttenuated && isUncalibrated) {
+          calWarn.classList.remove("hidden");
+          setEl("warn-raw-v", rawV.toFixed(1) + " V");
+        } else {
+          calWarn.classList.add("hidden");
+        }
+      }
+
+      // Min / Max power tracking
+      if(estimatedRealW > maxP) maxP = estimatedRealW;
+      if(estimatedRealW < minP && estimatedRealW > 0) minP = estimatedRealW;
       setEl("stat-max-power", maxP.toFixed(0) + " W");
       setEl("stat-min-power", (minP === Infinity ? 0 : minP).toFixed(0) + " W");
       setEl("stat-energy", accEnergy.toFixed(4) + " kWh");
       setEl("stat-cost", "Rs " + cost.toFixed(2));
       setEl("stat-packets", packetCount);
       setEl("packets-count", packetCount);
-      setEl("serial-raw", JSON.stringify(d));
+      setEl("serial-raw", rawPacketString || JSON.stringify(d));
 
-      const val = metric === "voltage" ? d.voltage : metric === "current" ? d.current : d.power;
-      const t = new Date().toLocaleTimeString("en-IN", { hour12:false, hour:"2-digit", minute:"2-digit", second:"2-digit" });
-      labels.push(t);
+      // 7. Update Live Waveform Chart
+      const val = metric === "voltage" ? corrV : metric === "current" ? corrI : estimatedRealW;
+      const tStr = new Date(now).toLocaleTimeString("en-IN", { hour12:false, hour:"2-digit", minute:"2-digit", second:"2-digit" });
+      labels.push(tStr);
       chartData.push(val);
       if(labels.length > 60) { labels.shift(); chartData.shift(); }
       chart.update("none");
 
-      const overload = d.power > 3000 || d.current > 13;
+      // Load Threshold Alert
+      const overload = estimatedRealW > 3000 || corrI > 13;
       const ab = el("alert-banner");
       if(ab) {
         if(overload) {
           ab.classList.remove("hidden");
-          setEl("alert-msg", `Power: ${d.power.toFixed(0)}W / Current: ${d.current.toFixed(2)}A EXCEEDS THRESHOLD LIMIT`);
+          setEl("alert-msg", `Power: ${estimatedRealW.toFixed(0)}W / Current: ${corrI.toFixed(2)}A EXCEEDS THRESHOLD LIMIT`);
         } else {
           ab.classList.add("hidden");
         }
@@ -367,51 +682,96 @@
       el("device-status-dot").className = "dot dot-success pulse";
       setEl("device-status-text", "Connected");
 
-      // Cache live reading immediately for Instant Admin Inspection
+      // 8. Update Collapsible Live Diagnostics Drawer (STEP 8)
+      setEl("diag-raw-packet", rawPacketString || JSON.stringify(d));
+      setEl("diag-raw-v", `${rawV.toFixed(1)} V`);
+      setEl("diag-corr-v", `${corrV.toFixed(1)} V`);
+      setEl("diag-v-mult", calSettings.voltageMultiplier.toFixed(3));
+      setEl("diag-v-off", calSettings.voltageOffset.toFixed(1));
+      setEl("diag-raw-i", `${rawI.toFixed(2)} A`);
+      setEl("diag-corr-i", `${corrI.toFixed(2)} A`);
+      setEl("diag-sensor-model", calSettings.sensorModel);
+      setEl("diag-i-mult", calSettings.currentMultiplier.toFixed(3));
+      setEl("diag-apparent-p", `${apparentVA.toFixed(1)} VA`);
+      setEl("diag-real-p", `${estimatedRealW.toFixed(1)} W`);
+      setEl("diag-pf", calSettings.powerFactor.toFixed(2));
+      setEl("diag-esp-energy", `${rawEspEnergy.toFixed(4)} kWh`);
+      setEl("diag-web-energy", `${accEnergy.toFixed(4)} kWh`);
+      setEl("diag-packets", packetCount);
+      setEl("diag-errors", streamErrors);
+      setEl("diag-time", tStr);
+
+      // 9. Cache Live Reading for Instant Admin & Inter-Tab Inspection
       try {
         const liveSnapshot = {
-          voltage: d.voltage,
-          current: d.current,
-          power: d.power,
+          raw_voltage: rawV,
+          voltage: corrV,
+          raw_current: rawI,
+          current: corrI,
+          raw_power: rawP,
+          apparent_power: apparentVA,
+          power: estimatedRealW,
+          esp_energy_kwh: rawEspEnergy,
           energy_kwh: accEnergy,
           estimated_cost: cost,
-          timestamp: new Date().toISOString(),
-          online: true
+          timestamp: new Date(now).toISOString(),
+          raw_packet: rawPacketString || JSON.stringify(d),
+          calibration: calSettings,
+          online: true,
+          device_id: deviceId
         };
         localStorage.setItem("smartenergy_latest_reading", JSON.stringify(liveSnapshot));
         localStorage.setItem(`smartenergy_reading_${userUid}`, JSON.stringify(liveSnapshot));
       } catch(_) {}
 
+      // 10. Periodic Cloud Sync (Every 15s)
       if(now - lastSaveMs >= 15000) {
         lastSaveMs = now;
         saveCloud({
-          voltage: d.voltage,
-          current: d.current,
-          power: d.power,
+          voltage: corrV,
+          raw_voltage: rawV,
+          current: corrI,
+          raw_current: rawI,
+          power: estimatedRealW,
+          apparent_power: apparentVA,
           energy_kwh: accEnergy,
+          esp_energy_kwh: rawEspEnergy,
           estimated_cost: cost,
-          timestamp: new Date().toISOString(),
+          timestamp: new Date(now).toISOString(),
           device_id: deviceId
         });
       }
     }
 
-    // ── 6. WEB SERIAL COMMUNICATION (INSTANT BINDING - ZERO BLOCKING) ──
+    // ── 6. WEB SERIAL COMMUNICATION (STEP 2) ──
     const supported = ("serial" in navigator);
     setEl("stat-browser", supported ? "Google Chrome / Edge (Web Serial OK)" : "Browser NOT Supported (Use Chrome/Edge)");
 
     const btn = el("connect-btn");
     let port = null, reader = null, connected = false;
 
-    if(!supported) {
-      setStatus("⚠️", "<strong style='color:#f59e0b;'>Web Serial not supported in this browser.</strong> Please open in <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> on a desktop PC. You can use <em>Demo Mode</em> to test right now.", "bar-warn");
-      btn.style.opacity = "0.5";
-    } else {
-      setStatus("🔌", "Click <strong>Connect Device</strong> — a browser dialog will appear asking you to choose your <strong>ESP32 COM Port</strong>.", "bar-idle");
+    // Serial Command Transmitter (To synchronize firmware variables if supported)
+    async function sendSerialCommand(cmd) {
+      if(port && port.writable) {
+        try {
+          const encoder = new TextEncoder();
+          const writer = port.writable.getWriter();
+          await writer.write(encoder.encode(cmd.trim() + "\n"));
+          writer.releaseLock();
+          console.log("Transmitted Serial Command:", cmd);
+        } catch(err) {
+          console.warn("Could not transmit serial command:", err.message);
+        }
+      }
     }
 
-    // CRITICAL: Call navigator.serial.requestPort() IMMEDIATELY inside the user click gesture!
-    // NEVER disable the button before requestPort() as Chromium cancels the user activation token!
+    if(!supported) {
+      setStatus("⚠️", "<strong style='color:#f59e0b;'>Web Serial not supported in this browser.</strong> Please open in <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> on a desktop PC.", "bar-warn");
+      btn.style.opacity = "0.5";
+    } else {
+      setStatus("🔌", "Click <strong>Connect Device</strong> — select your <strong>ESP32 COM Port</strong> at 115200 baud.", "bar-idle");
+    }
+
     btn.addEventListener("click", async () => {
       if(connected) {
         await doDisconnect("Manual Disconnect");
@@ -429,7 +789,7 @@
         // Native Chrome/Edge port picker popup
         port = await navigator.serial.requestPort();
 
-        // User picked a port! Now open connection at 115200 baud
+        // User picked a port! Open connection at 115200 baud
         btn.textContent = "Opening Port...";
         btn.disabled = true;
 
@@ -450,7 +810,7 @@
         const lbl = (info && info.usbProductId) ? `USB (${info.usbVendorId}:${info.usbProductId})` : "ESP32 Serial Port";
         el("port-info-badge").textContent = `Port: ${lbl} @ 115200`;
         el("port-info-badge").className = "badge badge-success";
-        setStatus("✅", `Connected to <strong>${lbl}</strong>! Reading live ESP32 voltage and current...`, "bar-connected");
+        setStatus("✅", `Connected to <strong>${lbl}</strong>! Reading live ESP32 voltage and current telemetry...`, "bar-connected");
         toast("ESP32 Connected Successfully!", "success");
 
         port.addEventListener("disconnect", () => doDisconnect("USB cable was unplugged"));
@@ -462,7 +822,6 @@
         btn.textContent = "🔌 Connect Device";
 
         if(err.name === "NotFoundError") {
-          // User closed or canceled the port selector
           setStatus("ℹ️", "Port selection cancelled. Click <strong>Connect Device</strong> again whenever ready.", "bar-idle");
           toast("No COM port was selected.", "info");
         } else if(err.name === "SecurityError") {
@@ -500,10 +859,19 @@
                   if(s >= 0 && e > s) {
                     const parsed = JSON.parse(t.substring(s, e + 1));
                     if(typeof parsed.voltage === "number" && typeof parsed.current === "number") {
-                      handleReading(parsed);
+                      handleReading(parsed, t);
+                    } else {
+                      streamErrors++;
+                    }
+                  } else {
+                    // Not JSON packet, could be debug line from firmware
+                    if(!t.startsWith("---") && !t.startsWith("WiFi")) {
+                      streamErrors++;
                     }
                   }
-                } catch(_) {}
+                } catch(_) {
+                  streamErrors++;
+                }
               }
             }
           }
@@ -518,6 +886,7 @@
 
     async function doDisconnect(reason) {
       connected = false;
+      lastEnergyMs = 0; // stop accumulation interval during disconnect
       if(reader) {
         try { await reader.cancel(); } catch(_) {}
         try { reader.releaseLock(); } catch(_) {}
@@ -538,11 +907,12 @@
       toast(`Disconnected: ${reason}`, "warning");
     }
 
-    // ── 7. SIMULATED DEMO MODE ──
+    // ── 7. SIMULATED DEMO MODE (Clear Separation from Hardware) ──
     let demoInt = null, demoOn = false;
     el("demo-btn").addEventListener("click", () => {
       if(demoOn) {
         clearInterval(demoInt);
+        demoInt = null;
         demoOn = false;
         el("demo-btn").textContent = "🎮 Demo Mode";
         setStatus("🔌", "Demo mode stopped. Click <strong>Connect Device</strong> to use your physical ESP32.", "bar-idle");
@@ -551,44 +921,204 @@
         toast("Simulation stopped.", "info");
         return;
       }
+      if(connected) {
+        toast("Disconnect physical hardware before running Demo Mode.", "warning");
+        return;
+      }
       demoOn = true;
       el("demo-btn").textContent = "⏹ Stop Demo";
-      setStatus("⚡", "Simulated hardware active — generating realistic 230V AC waveform and load readings.", "bar-connected");
+      setStatus("⚡", "Simulated demo active — generating realistic AC telemetry for testing.", "bar-connected");
       el("port-info-badge").textContent = "Mode: Simulated Hardware";
       el("port-info-badge").className = "badge badge-info";
-      toast("Demo Mode active — simulating ESP32 data", "success");
+      toast("Demo Mode active (Simulated)", "success");
       demoInt = setInterval(() => {
-        const v = Math.round((230 + Math.sin(Date.now() / 5000) * 4 + (Math.random() * 1.5 - 0.75)) * 10) / 10;
-        const i = Math.max(0.05, Math.round((1.8 + Math.sin(Date.now() / 7000) * 0.4 + (Math.random() * 0.15 - 0.075)) * 100) / 100);
-        const p = Math.round(v * i * 0.98 * 10) / 10;
-        handleReading({
+        // Realistic simulated raw values matching bench measurements
+        const rawV = Math.round((89.6 + Math.sin(Date.now() / 4000) * 0.8 + (Math.random() * 0.4 - 0.2)) * 10) / 10;
+        const rawI = Math.max(0.04, Math.round((0.06 + Math.sin(Date.now() / 6000) * 0.02 + (Math.random() * 0.01 - 0.005)) * 100) / 100);
+        const simPacket = {
           device_id: deviceId,
-          voltage: v,
-          current: i,
-          power: p,
-          energy_kwh: 0,
-          estimated_cost: 0,
+          voltage: rawV,
+          current: rawI,
+          power: Math.round(rawV * rawI * 10) / 10,
+          energy_kwh: 0.0001,
+          estimated_cost: 0.00,
           timestamp: new Date().toISOString()
-        });
+        };
+        handleReading(simPacket, JSON.stringify(simPacket));
       }, 1000);
     });
 
-    // ── 8. NON-BLOCKING BACKGROUND TARIFF LOAD ──
+    // ── 8. LIVE DIAGNOSTICS DRAWER TOGGLE (STEP 8) ──
+    const diagBtn = el("toggle-user-diag-btn");
+    const diagCard = el("user-diagnostics-card");
+    if(diagBtn && diagCard) {
+      diagBtn.addEventListener("click", () => {
+        diagCard.classList.toggle("hidden");
+        diagBtn.classList.toggle("btn-primary");
+        diagBtn.classList.toggle("btn-secondary");
+      });
+    }
+
+    // ── 9. SENSOR CALIBRATION MODAL & MULTIMETER TOOL (STEP 3 & STEP 4) ──
+    const calModal = el("user-calibration-modal");
+    const openCalBtn = el("open-user-cal-btn");
+    const bannerCalBtn = el("banner-cal-btn");
+    const closeCalBtn = el("close-user-cal-modal");
+    const calForm = el("user-calibration-form");
+
+    function syncCalModalInputs() {
+      el("user-cal-v-mult").value = calSettings.voltageMultiplier.toFixed(3);
+      el("user-cal-v-off").value  = calSettings.voltageOffset.toFixed(1);
+      el("user-cal-sensor-model").value = calSettings.sensorModel || "ACS712_05B";
+      el("user-cal-i-mult").value = calSettings.currentMultiplier.toFixed(3);
+      el("user-cal-i-off").value  = calSettings.currentOffset.toFixed(2);
+      el("user-cal-pf").value     = calSettings.powerFactor.toFixed(2);
+      el("user-cal-ref-v").value  = (calSettings.referenceVoltage || 229.0).toFixed(1);
+
+      updateCalModalPreviews();
+    }
+
+    function updateCalModalPreviews() {
+      setEl("user-cal-raw-v", latestRawVoltage.toFixed(1));
+      setEl("user-cal-prev-raw-v", latestRawVoltage.toFixed(1) + " V");
+
+      const refV = parseFloat(el("user-cal-ref-v").value) || 229.0;
+      const recFactor = latestRawVoltage > 0 ? (refV / latestRawVoltage) : 2.556;
+      setEl("user-cal-computed-factor", recFactor.toFixed(3));
+
+      const vMult = parseFloat(el("user-cal-v-mult").value) || 1.0;
+      const vOff  = parseFloat(el("user-cal-v-off").value) || 0.0;
+      const prevCorrV = Math.max(0, (latestRawVoltage * vMult) + vOff);
+      setEl("user-cal-prev-corr-v", prevCorrV.toFixed(1) + " V");
+    }
+
+    function openCalibrationModal() {
+      syncCalModalInputs();
+      calModal.classList.remove("hidden");
+    }
+
+    if(openCalBtn) openCalBtn.addEventListener("click", openCalibrationModal);
+    if(bannerCalBtn) bannerCalBtn.addEventListener("click", openCalibrationModal);
+    if(closeCalBtn) closeCalBtn.addEventListener("click", () => calModal.classList.add("hidden"));
+    if(calModal) {
+      calModal.addEventListener("click", (e) => {
+        if(e.target === calModal) calModal.classList.add("hidden");
+      });
+    }
+
+    // Auto-calculate recommendation when multimeter reference input changes
+    el("user-cal-ref-v").addEventListener("input", updateCalModalPreviews);
+    el("user-cal-v-mult").addEventListener("input", updateCalModalPreviews);
+    el("user-cal-v-off").addEventListener("input", updateCalModalPreviews);
+
+    // Apply Recommended Factor Button: auto-fills the ratio into K_v
+    el("user-apply-bench-factor-btn").addEventListener("click", () => {
+      const refV = parseFloat(el("user-cal-ref-v").value) || 229.0;
+      const factor = latestRawVoltage > 0 ? (refV / latestRawVoltage) : 2.556;
+      el("user-cal-v-mult").value = factor.toFixed(3);
+      updateCalModalPreviews();
+      toast(`Applied Multimeter Factor: ${factor.toFixed(3)}x (${refV.toFixed(1)}V / ${latestRawVoltage.toFixed(1)}V)`, "info");
+    });
+
+    // Save Calibration Form
+    calForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const newSettings = {
+        voltageMultiplier: parseFloat(el("user-cal-v-mult").value) || 1.0,
+        voltageOffset:     parseFloat(el("user-cal-v-off").value) || 0.0,
+        sensorModel:       el("user-cal-sensor-model").value,
+        currentMultiplier: parseFloat(el("user-cal-i-mult").value) || 1.0,
+        currentOffset:     parseFloat(el("user-cal-i-off").value) || 0.0,
+        powerFactor:       parseFloat(el("user-cal-pf").value) || 0.98,
+        referenceVoltage:  parseFloat(el("user-cal-ref-v").value) || 229.0,
+        noiseCutoffAmps:   0.04
+      };
+
+      calSettings = Object.assign({}, DEFAULT_CALIBRATION, newSettings);
+
+      // Persist locally
+      try {
+        localStorage.setItem("smartenergy_calibration", JSON.stringify(calSettings));
+      } catch(_) {}
+
+      // Persist to Firebase if available
+      if(db) {
+        try {
+          await set(ref(db, "settings/calibration"), calSettings);
+        } catch(_) {}
+      }
+
+      // Sync with ESP32 firmware over serial if connected
+      if(connected) {
+        await sendSerialCommand(`CAL_VOLT:${calSettings.voltageMultiplier.toFixed(3)}`);
+        await sendSerialCommand(`CAL_CURR:${calSettings.currentMultiplier.toFixed(3)}`);
+      }
+
+      updateCalBadges();
+      calModal.classList.add("hidden");
+      toast("Calibration settings saved and applied successfully!", "success");
+    });
+
+    // ── 10. ENERGY RESET CONFIRMATION MODAL (STEP 6) ──
+    const resetModal = el("reset-energy-modal");
+    const openResetBtn = el("reset-energy-btn");
+    const closeResetBtn = el("close-reset-energy-modal");
+    const cancelResetBtn = el("cancel-reset-energy-btn");
+    const confirmResetBtn = el("confirm-reset-energy-btn");
+
+    if(openResetBtn) openResetBtn.addEventListener("click", () => resetModal.classList.remove("hidden"));
+    if(closeResetBtn) closeResetBtn.addEventListener("click", () => resetModal.classList.add("hidden"));
+    if(cancelResetBtn) cancelResetBtn.addEventListener("click", () => resetModal.classList.add("hidden"));
+    if(resetModal) {
+      resetModal.addEventListener("click", (e) => {
+        if(e.target === resetModal) resetModal.classList.add("hidden");
+      });
+    }
+
+    if(confirmResetBtn) {
+      confirmResetBtn.addEventListener("click", async () => {
+        accEnergy = 0.0;
+        try {
+          localStorage.setItem(`smartenergy_acc_energy_${deviceId}`, "0.000000");
+          localStorage.setItem("smartenergy_acc_energy_kwh", "0.000000");
+        } catch(_) {}
+        setEl("kpi-energy", "0.0000");
+        setEl("kpi-cost", "Rs 0.00");
+        setEl("stat-energy", "0.0000 kWh");
+        setEl("stat-cost", "Rs 0.00");
+
+        if(connected) {
+          await sendSerialCommand("RESET_ENERGY");
+        }
+
+        resetModal.classList.add("hidden");
+        toast("Accumulated energy has been reset to 0.0000 kWh.", "info");
+      });
+    }
+
+    // ── 11. TARIFF SYNC (STEP 7) ──
+    // Default prototype flat rate: ₹5.00/kWh (noted as flat prototype rate, not exact Tamil Nadu slab)
+    setEl("cost-tariff-label", `@ ₹${tariffRate.toFixed(2)} / Unit (Prototype Rate)`);
+    setEl("sidebar-tariff", `Rs ${tariffRate.toFixed(2)} / kWh`);
+
     setTimeout(async () => {
       if(!db) return;
       try {
         const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 1500));
         const snap = await Promise.race([get(ref(db, "settings/tariff")), timeout]);
         if(snap && snap.exists()) {
-          tariffRate = snap.val().ratePerUnit || 6.50;
+          const val = snap.val();
+          tariffRate = (typeof val.ratePerUnit === "number") ? val.ratePerUnit : 5.00;
           setEl("sidebar-tariff", "Rs " + tariffRate.toFixed(2) + " / kWh");
+          setEl("cost-tariff-label", `@ ₹${tariffRate.toFixed(2)} / Unit (Prototype Rate)`);
         }
       } catch(_) {
-        // Fallback to default tariff instantly
-        tariffRate = 6.50;
+        tariffRate = 5.00;
       }
     }, 150);
 
+    // Auto-launch demo mode if requested in URL (?demo=true)
     if(new URLSearchParams(window.location.search).get("demo") === "true") {
       el("demo-btn").click();
     }

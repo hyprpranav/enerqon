@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -225,7 +225,7 @@
         const i_amps = isPeak ? Math.round((2.8 + Math.random() * 1.6) * 100) / 100 : Math.round((0.8 + Math.random() * 0.9) * 100) / 100;
         const p = Math.round(v * i_amps * 0.98 * 10) / 10;
         energyAcc += (p * 0.25) / 1000;
-        const cost = Math.round(energyAcc * 6.50 * 100) / 100;
+        const cost = Math.round(energyAcc * 5.00 * 100) / 100;
 
         records.push({
           timestamp: new Date(timeMs).toISOString(),

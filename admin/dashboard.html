@@ -115,12 +115,63 @@
           <p style="color:var(--text-secondary);font-size:0.875rem;">Real-time grid consumption, anomaly detection & client device status</p>
         </div>
         <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+          <button id="top-open-cal-btn" class="btn btn-warning btn-sm" style="display:inline-flex;align-items:center;gap:6px;">
+            <span>⚖️</span> Sensor Calibration
+          </button>
+          <button id="toggle-admin-diag-btn" class="btn btn-secondary btn-sm" style="display:inline-flex;align-items:center;gap:6px;">
+            <span>🛠️</span> Live Diagnostics
+          </button>
           <button id="delete-all-users-btn" class="btn btn-danger btn-sm" style="display:inline-flex;align-items:center;gap:6px;">
             <span>🗑️</span> Delete All Users
           </button>
           <a href="users.html" class="btn btn-primary btn-sm">
             👥 Manage Users
           </a>
+        </div>
+      </div>
+
+      <!-- Live Hardware Telemetry Diagnostics (Collapsible) -->
+      <div id="admin-diagnostics-card" class="card hidden" style="margin-bottom:1.75rem;border-color:rgba(0,212,255,0.3);background:linear-gradient(180deg, rgba(15,23,42,0.9), rgba(15,23,42,0.98));">
+        <div class="card-header" style="border-bottom:1px solid var(--border-subtle);padding-bottom:0.75rem;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:1.2rem;">🛠️</span>
+            <div>
+              <h3 class="card-title" style="margin:0;font-size:1rem;">Hardware Telemetry Diagnostics & Live Debug</h3>
+              <p style="margin:0;font-size:0.75rem;color:var(--text-secondary);">Direct inspection of USB serial telemetry, raw vs calibrated scaling & packet integrity</p>
+            </div>
+          </div>
+          <span class="badge badge-info" id="diag-status-badge">Active Node</span>
+        </div>
+        <div style="padding-top:1rem;">
+          <div style="margin-bottom:1rem;background:rgba(0,0,0,0.4);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:0.75rem;">
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.3rem;">Latest Raw Serial Packet String:</div>
+            <div id="admin-diag-raw-packet" class="font-mono" style="font-size:0.85rem;color:#38bdf8;word-break:break-all;">Waiting for live serial stream...</div>
+          </div>
+          <div class="grid grid-3" style="gap:1rem;font-size:0.85rem;">
+            <div style="background:var(--bg-surface);padding:0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+              <div style="color:var(--text-muted);font-size:0.75rem;">VOLTAGE SCALING</div>
+              <div style="margin-top:0.3rem;">Raw: <span id="admin-diag-raw-v" class="font-mono">--</span> V</div>
+              <div style="margin-top:0.2rem;font-weight:600;color:var(--clr-success);">Corrected: <span id="admin-diag-corr-v" class="font-mono">--</span> V</div>
+              <div style="margin-top:0.2rem;font-size:0.75rem;color:var(--text-muted);">Factor: <span id="admin-diag-v-factor">1.000</span> (Offset: <span id="admin-diag-v-off">0.0</span>V)</div>
+            </div>
+            <div style="background:var(--bg-surface);padding:0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+              <div style="color:var(--text-muted);font-size:0.75rem;">CURRENT SCALING (ACS712)</div>
+              <div style="margin-top:0.3rem;">Raw: <span id="admin-diag-raw-i" class="font-mono">--</span> A</div>
+              <div style="margin-top:0.2rem;font-weight:600;color:var(--clr-success);">Corrected: <span id="admin-diag-corr-i" class="font-mono">--</span> A</div>
+              <div style="margin-top:0.2rem;font-size:0.75rem;color:var(--text-muted);">Model: <span id="admin-diag-model">ACS712_05B</span> (Mult: <span id="admin-diag-i-factor">1.000</span>)</div>
+            </div>
+            <div style="background:var(--bg-surface);padding:0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);">
+              <div style="color:var(--text-muted);font-size:0.75rem;">POWER BREAKDOWN</div>
+              <div style="margin-top:0.3rem;">Apparent: <span id="admin-diag-va" class="font-mono">--</span> VA</div>
+              <div style="margin-top:0.2rem;font-weight:600;color:var(--clr-warning);">Est. Real: <span id="admin-diag-w" class="font-mono">--</span> W</div>
+              <div style="margin-top:0.2rem;font-size:0.75rem;color:var(--text-muted);">Configured PF: <span id="admin-diag-pf">0.98</span></div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:0.75rem;font-size:0.75rem;color:var(--text-muted);flex-wrap:wrap;gap:0.5rem;">
+            <div>Packet Counter: <strong id="admin-diag-packets" class="font-mono" style="color:#fff;">0</strong></div>
+            <div>Last Packet Time: <span id="admin-diag-time" class="font-mono">--</span></div>
+            <div>Authoritative Energy: <strong id="admin-diag-kwh" class="font-mono" style="color:var(--clr-primary);">0.0000 kWh</strong></div>
+          </div>
         </div>
       </div>
 
@@ -231,7 +282,7 @@
           <label class="form-label" for="tariff-rate">Tariff Rate per Unit (kWh) *</label>
           <div class="input-group">
             <span class="input-icon">₹</span>
-            <input type="number" step="0.01" id="tariff-rate" class="form-control" required value="6.50" />
+            <input type="number" step="0.01" id="tariff-rate" class="form-control" required value="5.00" />
           </div>
           <div class="form-hint">Official utility flat rate per Unit in INR</div>
         </div>
@@ -282,48 +333,100 @@
     </div>
   </div>
 
-  <!-- Calibration Settings Modal -->
+  <!-- Calibration Settings Modal (Admin Only) -->
   <div id="calibration-modal" class="modal-backdrop hidden">
-    <div class="modal" style="max-width:500px;">
+    <div class="modal" style="max-width:560px;">
       <div class="modal-header">
-        <span class="modal-title">⚖️ Sensor Calibration Parameters</span>
+        <span class="modal-title">⚖️ Sensor Calibration & Bench Alignment</span>
         <button class="modal-close" id="close-cal-modal">✕</button>
       </div>
       <form id="calibration-form">
-        <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:1rem;">
-          Adjust software multipliers and zero-offsets to match calibrated bench meter readings.
+        <p style="font-size:0.83rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.4;">
+          The ESP32 calculates RMS values internally across 10 AC cycles. Configure software multipliers to align website readings with physical reference multimeters.
         </p>
 
+        <!-- Multimeter Quick Comparison Tool -->
+        <div style="background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.25);border-radius:var(--radius-md);padding:0.85rem;margin-bottom:1.25rem;">
+          <div style="font-weight:600;font-size:0.85rem;color:var(--clr-primary);margin-bottom:0.5rem;display:flex;align-items:center;gap:6px;">
+            <span>📐</span> Multimeter Comparison & Auto-Scaling
+          </div>
+          <div class="grid grid-2" style="gap:0.75rem;">
+            <div>
+              <label class="form-label" style="font-size:0.75rem;" for="cal-ref-v">Reference Multimeter (V) *</label>
+              <input type="number" step="0.1" id="cal-ref-v" class="form-control" value="229.0" />
+            </div>
+            <div>
+              <label class="form-label" style="font-size:0.75rem;">Live Raw Sensor Reading</label>
+              <div style="height:38px;display:flex;align-items:center;padding:0 0.75rem;background:var(--bg-surface);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);font-weight:700;font-family:monospace;">
+                <span id="cal-bench-raw-v">89.6</span>&nbsp;V
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:0.6rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+            <div style="font-size:0.75rem;color:var(--text-secondary);">
+              Recommended Factor: <strong id="cal-computed-factor" style="color:var(--clr-primary);font-family:monospace;">2.556</strong> (229.0 / 89.6)
+            </div>
+            <button type="button" id="apply-bench-factor-btn" class="btn btn-outline btn-sm" style="font-size:0.75rem;padding:0.25rem 0.6rem;">
+              Apply Recommended Factor
+            </button>
+          </div>
+        </div>
+
+        <!-- Voltage Calibration Section -->
+        <div style="font-weight:600;font-size:0.85rem;color:var(--text-primary);margin-bottom:0.4rem;">
+          1. AC Voltage Calibration (LM358 Module)
+        </div>
         <div class="grid grid-2" style="gap:1rem;">
           <div class="form-group">
-            <label class="form-label" for="cal-v-mult">Voltage Multiplier</label>
+            <label class="form-label" for="cal-v-mult">Voltage Multiplier (K_v)</label>
             <input type="number" step="0.001" id="cal-v-mult" class="form-control" value="1.000" />
+            <div class="form-hint">Default 1.000 | Recommended ~2.556</div>
           </div>
           <div class="form-group">
             <label class="form-label" for="cal-v-off">Voltage Offset (V)</label>
             <input type="number" step="0.1" id="cal-v-off" class="form-control" value="0.0" />
+            <div class="form-hint">Linear baseline shift (default 0.0V)</div>
           </div>
         </div>
+        <div style="background:var(--bg-surface);padding:0.5rem 0.75rem;border-radius:var(--radius-sm);margin-bottom:1rem;font-size:0.8rem;display:flex;justify-content:space-between;">
+          <span style="color:var(--text-muted);">Voltage Preview:</span>
+          <span>Raw: <span id="cal-prev-raw-v" class="font-mono">89.6 V</span> ➔ <strong id="cal-prev-corr-v" class="font-mono" style="color:var(--clr-success);">89.6 V</strong></span>
+        </div>
 
+        <!-- Current Calibration Section -->
+        <div style="font-weight:600;font-size:0.85rem;color:var(--text-primary);margin-bottom:0.4rem;">
+          2. AC Current Calibration (ACS712 Hall-Effect)
+        </div>
         <div class="grid grid-2" style="gap:1rem;">
           <div class="form-group">
-            <label class="form-label" for="cal-i-mult">Current Multiplier</label>
+            <label class="form-label" for="cal-sensor-model">Sensor Model</label>
+            <select id="cal-sensor-model" class="form-control">
+              <option value="ACS712_05B">ACS712-05B (5A — 185 mV/A)</option>
+              <option value="ACS712_20A">ACS712-20A (20A — 100 mV/A)</option>
+              <option value="ACS712_30A">ACS712-30A (30A — 66 mV/A)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cal-i-mult">Current Multiplier (K_i)</label>
             <input type="number" step="0.001" id="cal-i-mult" class="form-control" value="1.000" />
           </div>
+        </div>
+        <div class="grid grid-2" style="gap:1rem;">
           <div class="form-group">
             <label class="form-label" for="cal-i-off">Current Offset (A)</label>
             <input type="number" step="0.01" id="cal-i-off" class="form-control" value="0.00" />
           </div>
+          <div class="form-group">
+            <label class="form-label" for="cal-pf">Assumed Power Factor (PF)</label>
+            <input type="number" step="0.01" min="0.5" max="1.0" id="cal-pf" class="form-control" value="0.98" />
+          </div>
         </div>
-
-        <div class="form-group">
-          <label class="form-label" for="cal-pf">Power Factor (PF)</label>
-          <input type="number" step="0.01" min="0" max="1" id="cal-pf" class="form-control" value="1.00" />
-          <div class="form-hint">Default 1.0 for purely resistive calibration loads</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1rem;line-height:1.4;">
+          ℹ️ Real Active Power = V_rms × I_rms × PF. For purely resistive testing (incandescent bulb), set PF = 1.00.
         </div>
 
         <button type="submit" class="btn btn-primary w-full" id="save-cal-btn">
-          Save Sensor Calibration
+          💾 Save & Deploy Sensor Calibration
         </button>
       </form>
     </div>
@@ -397,23 +500,88 @@
     // Modals
     const tariffModal = document.getElementById("tariff-modal");
     const calModal    = document.getElementById("calibration-modal");
+    const diagCard    = document.getElementById("admin-diagnostics-card");
 
     document.getElementById("open-tariff-btn").addEventListener("click", () => tariffModal.classList.remove("hidden"));
     document.getElementById("sidebar-tariff-link").addEventListener("click", (e) => { e.preventDefault(); tariffModal.classList.remove("hidden"); });
     document.getElementById("close-tariff-modal").addEventListener("click", () => tariffModal.classList.add("hidden"));
 
-    document.getElementById("open-cal-btn").addEventListener("click", () => calModal.classList.remove("hidden"));
-    document.getElementById("sidebar-cal-link").addEventListener("click", (e) => { e.preventDefault(); calModal.classList.remove("hidden"); });
+    function openCalModal() {
+      updateCalModalPreviews();
+      calModal.classList.remove("hidden");
+    }
+
+    document.getElementById("open-cal-btn").addEventListener("click", openCalModal);
+    document.getElementById("sidebar-cal-link").addEventListener("click", (e) => { e.preventDefault(); openCalModal(); });
+    const topCalBtn = document.getElementById("top-open-cal-btn");
+    if (topCalBtn) topCalBtn.addEventListener("click", openCalModal);
     document.getElementById("close-cal-modal").addEventListener("click", () => calModal.classList.add("hidden"));
+
+    // Toggle Diagnostics Card
+    const toggleDiagBtn = document.getElementById("toggle-admin-diag-btn");
+    if (toggleDiagBtn) {
+      toggleDiagBtn.addEventListener("click", () => {
+        diagCard.classList.toggle("hidden");
+        toggleDiagBtn.classList.toggle("btn-primary");
+        toggleDiagBtn.classList.toggle("btn-secondary");
+      });
+    }
 
     tariffModal.addEventListener("click", (e) => { if (e.target === tariffModal) tariffModal.classList.add("hidden"); });
     calModal.addEventListener("click", (e) => { if (e.target === calModal) calModal.classList.add("hidden"); });
+
+    // Live raw sensor voltage tracker for multimeter tool
+    let latestRawVoltage = 89.6;
+
+    function updateCalModalPreviews() {
+      try {
+        const cached = localStorage.getItem("smartenergy_latest_reading");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (typeof parsed.raw_voltage === "number" && parsed.raw_voltage > 0) {
+            latestRawVoltage = parsed.raw_voltage;
+          } else if (typeof parsed.voltage === "number" && parsed.voltage > 0) {
+            latestRawVoltage = parsed.voltage;
+          }
+        }
+      } catch(_) {}
+
+      const rawEl = document.getElementById("cal-bench-raw-v");
+      if (rawEl) rawEl.textContent = latestRawVoltage.toFixed(1);
+
+      const refV = parseFloat(document.getElementById("cal-ref-v").value) || 229.0;
+      const recFactor = latestRawVoltage > 0 ? (refV / latestRawVoltage) : 2.556;
+      const compFactorEl = document.getElementById("cal-computed-factor");
+      if (compFactorEl) compFactorEl.textContent = recFactor.toFixed(3);
+
+      const vMult = parseFloat(document.getElementById("cal-v-mult").value) || 1.0;
+      const vOff  = parseFloat(document.getElementById("cal-v-off").value) || 0.0;
+      const prevCorr = Math.max(0, (latestRawVoltage * vMult) + vOff);
+
+      const prevRawEl = document.getElementById("cal-prev-raw-v");
+      const prevCorrEl = document.getElementById("cal-prev-corr-v");
+      if (prevRawEl) prevRawEl.textContent = latestRawVoltage.toFixed(1) + " V";
+      if (prevCorrEl) prevCorrEl.textContent = prevCorr.toFixed(1) + " V";
+    }
+
+    document.getElementById("cal-ref-v").addEventListener("input", updateCalModalPreviews);
+    document.getElementById("cal-v-mult").addEventListener("input", updateCalModalPreviews);
+    document.getElementById("cal-v-off").addEventListener("input", updateCalModalPreviews);
+
+    document.getElementById("apply-bench-factor-btn").addEventListener("click", () => {
+      const refV = parseFloat(document.getElementById("cal-ref-v").value) || 229.0;
+      const recFactor = latestRawVoltage > 0 ? (refV / latestRawVoltage) : 2.556;
+      document.getElementById("cal-v-mult").value = recFactor.toFixed(3);
+      document.getElementById("cal-v-off").value  = "0.0";
+      updateCalModalPreviews();
+      showToast(`Recommended factor ${recFactor.toFixed(3)} applied! Click Save to confirm.`, "info");
+    });
 
     // Load initial settings into modals
     async function initSettings() {
       currentSettings = await loadSettings();
       if (currentSettings.tariff) {
-        document.getElementById("tariff-rate").value = currentSettings.tariff.ratePerUnit || 6.50;
+        document.getElementById("tariff-rate").value = currentSettings.tariff.ratePerUnit || 5.00;
         document.getElementById("consumer-type").value = currentSettings.tariff.consumerType || "domestic";
         document.getElementById("tariff-currency").value = currentSettings.tariff.symbol || "₹";
       }
@@ -428,8 +596,15 @@
         document.getElementById("cal-v-off").value  = currentSettings.calibration.voltageOffset || 0.0;
         document.getElementById("cal-i-mult").value = currentSettings.calibration.currentMultiplier || 1.0;
         document.getElementById("cal-i-off").value  = currentSettings.calibration.currentOffset || 0.0;
-        document.getElementById("cal-pf").value     = currentSettings.calibration.powerFactor || 1.0;
+        document.getElementById("cal-pf").value     = currentSettings.calibration.powerFactor || 0.98;
+        if (currentSettings.calibration.sensorModel) {
+          document.getElementById("cal-sensor-model").value = currentSettings.calibration.sensorModel;
+        }
+        if (currentSettings.calibration.referenceVoltage) {
+          document.getElementById("cal-ref-v").value = currentSettings.calibration.referenceVoltage;
+        }
       }
+      updateCalModalPreviews();
     }
 
     // Save Tariff Form
@@ -464,18 +639,97 @@
         voltageOffset:     parseFloat(document.getElementById("cal-v-off").value),
         currentMultiplier: parseFloat(document.getElementById("cal-i-mult").value),
         currentOffset:     parseFloat(document.getElementById("cal-i-off").value),
-        powerFactor:       parseFloat(document.getElementById("cal-pf").value)
+        powerFactor:       parseFloat(document.getElementById("cal-pf").value),
+        sensorModel:       document.getElementById("cal-sensor-model").value,
+        referenceVoltage:  parseFloat(document.getElementById("cal-ref-v").value) || 229.0
       };
 
       try {
         await saveCalibration(calData);
         currentSettings.calibration = calData;
-        showToast("Sensor calibration saved to Firebase!", "success");
+        showToast("Sensor calibration saved and deployed successfully!", "success");
         calModal.classList.add("hidden");
+        updateLiveDiagnostics();
       } catch (err) {
         showToast("Error saving calibration: " + err.message, "error");
       }
     });
+
+    // Update Live Diagnostics Card from latest reading
+    function updateLiveDiagnostics() {
+      try {
+        const cached = localStorage.getItem("smartenergy_latest_reading");
+        if (!cached) return;
+        const d = JSON.parse(cached);
+
+        const rawPacketEl = document.getElementById("admin-diag-raw-packet");
+        if (rawPacketEl) {
+          rawPacketEl.textContent = d.raw_packet || JSON.stringify(d);
+        }
+
+        const rawV = (typeof d.raw_voltage === "number") ? d.raw_voltage : (typeof d.voltage === "number" ? d.voltage : 0);
+        const corrV = (typeof d.voltage === "number") ? d.voltage : rawV;
+        const rawI = (typeof d.raw_current === "number") ? d.raw_current : (typeof d.current === "number" ? d.current : 0);
+        const corrI = (typeof d.current === "number") ? d.current : rawI;
+
+        const cal = currentSettings?.calibration || {};
+        const vMult = cal.voltageMultiplier || 1.0;
+        const vOff = cal.voltageOffset || 0.0;
+        const iMult = cal.currentMultiplier || 1.0;
+        const pf = cal.powerFactor || 0.98;
+
+        const rawVEl = document.getElementById("admin-diag-raw-v");
+        const corrVEl = document.getElementById("admin-diag-corr-v");
+        const vFacEl = document.getElementById("admin-diag-v-factor");
+        const vOffEl = document.getElementById("admin-diag-v-off");
+        if (rawVEl) rawVEl.textContent = rawV.toFixed(1);
+        if (corrVEl) corrVEl.textContent = corrV.toFixed(1);
+        if (vFacEl) vFacEl.textContent = vMult.toFixed(3);
+        if (vOffEl) vOffEl.textContent = vOff.toFixed(1);
+
+        const rawIEl = document.getElementById("admin-diag-raw-i");
+        const corrIEl = document.getElementById("admin-diag-corr-i");
+        const modelEl = document.getElementById("admin-diag-model");
+        const iFacEl = document.getElementById("admin-diag-i-factor");
+        if (rawIEl) rawIEl.textContent = rawI.toFixed(2);
+        if (corrIEl) corrIEl.textContent = corrI.toFixed(2);
+        if (modelEl) modelEl.textContent = cal.sensorModel || "ACS712_05B";
+        if (iFacEl) iFacEl.textContent = iMult.toFixed(3);
+
+        const va = corrV * corrI;
+        const realW = (typeof d.power === "number") ? d.power : (va * pf);
+
+        const vaEl = document.getElementById("admin-diag-va");
+        const wEl = document.getElementById("admin-diag-w");
+        const pfEl = document.getElementById("admin-diag-pf");
+        if (vaEl) vaEl.textContent = va.toFixed(1);
+        if (wEl) wEl.textContent = realW.toFixed(1);
+        if (pfEl) pfEl.textContent = pf.toFixed(2);
+
+        const pktsEl = document.getElementById("admin-diag-packets");
+        const timeEl = document.getElementById("admin-diag-time");
+        const kwhEl = document.getElementById("admin-diag-kwh");
+        if (pktsEl) pktsEl.textContent = d.packet_count || localStorage.getItem("smartenergy_packet_count") || "1";
+        if (timeEl) timeEl.textContent = d.timestamp ? new Date(d.timestamp).toLocaleTimeString() : "Live";
+        if (kwhEl) kwhEl.textContent = (d.energy_kwh || 0).toFixed(4) + " kWh";
+
+        if (rawV > 0) latestRawVoltage = rawV;
+      } catch(_) {}
+    }
+
+    window.addEventListener("storage", (e) => {
+      if (e.key === "smartenergy_latest_reading" || e.key === "smartenergy_calibration") {
+        updateLiveDiagnostics();
+        if (e.key === "smartenergy_calibration") initSettings();
+      }
+    });
+
+    window.addEventListener("calibration-updated", () => {
+      initSettings();
+      updateLiveDiagnostics();
+    });
+
+    setInterval(updateLiveDiagnostics, 1000);
 
 
     // Render User Cards

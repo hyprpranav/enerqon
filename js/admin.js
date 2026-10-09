@@ -303,34 +303,115 @@ export function renderUserRow(user, thresholds = DEFAULT_SETTINGS.thresholds) {
 
 // ── Save tariff settings ──────────────────────────────────────
 export async function saveTariff(tariffData) {
-  await set(ref(database, DB_PATHS.tariff()), tariffData);
+  if (!tariffData || typeof tariffData.ratePerUnit !== "number" || tariffData.ratePerUnit <= 0) {
+    throw new Error("Invalid tariff rate. Must be a positive number.");
+  }
+  const clean = {
+    ratePerUnit:  Math.round(tariffData.ratePerUnit * 100) / 100,
+    currency:     tariffData.currency || "INR",
+    symbol:       tariffData.symbol || "₹",
+    consumerType: tariffData.consumerType || "domestic"
+  };
+  // 1. Immediate local persistence
+  try {
+    localStorage.setItem("smartenergy_tariff", JSON.stringify(clean));
+    window.dispatchEvent(new CustomEvent("tariff-updated", { detail: clean }));
+  } catch (_) {}
+
+  // 2. Cloud sync
+  try {
+    await withDbTimeout(set(ref(database, DB_PATHS.tariff()), clean), 1500);
+  } catch (e) {
+    console.warn("saveTariff RTDB notice:", e.message);
+  }
 }
 
-// ── Save calibration settings ─────────────────────────────────
+// ── Save calibration settings (Admin only) ────────────────────
 export async function saveCalibration(calData) {
-  await set(ref(database, DB_PATHS.calibration()), calData);
+  if (!calData) throw new Error("Calibration data required");
+
+  const vMult = parseFloat(calData.voltageMultiplier);
+  const vOff  = parseFloat(calData.voltageOffset);
+  const iMult = parseFloat(calData.currentMultiplier);
+  const iOff  = parseFloat(calData.currentOffset);
+  const pf    = parseFloat(calData.powerFactor);
+
+  if (isNaN(vMult) || vMult <= 0.01 || vMult > 20.0) {
+    throw new Error("Voltage multiplier must be between 0.01 and 20.0");
+  }
+  if (isNaN(iMult) || iMult <= 0.01 || iMult > 20.0) {
+    throw new Error("Current multiplier must be between 0.01 and 20.0");
+  }
+
+  const clean = {
+    voltageMultiplier: Math.round(vMult * 1000) / 1000,
+    voltageOffset:     isNaN(vOff) ? 0.0 : Math.round(vOff * 10) / 10,
+    currentMultiplier: Math.round(iMult * 1000) / 1000,
+    currentOffset:     isNaN(iOff) ? 0.0 : Math.round(iOff * 100) / 100,
+    powerFactor:       (isNaN(pf) || pf <= 0 || pf > 1.0) ? 0.98 : Math.round(pf * 100) / 100,
+    sensorModel:       calData.sensorModel || "ACS712_05B",
+    referenceVoltage:  parseFloat(calData.referenceVoltage) || 229.0,
+    updatedAt:         new Date().toISOString()
+  };
+
+  // 1. Immediate local-first persistence
+  try {
+    localStorage.setItem("smartenergy_calibration", JSON.stringify(clean));
+    window.dispatchEvent(new CustomEvent("calibration-updated", { detail: clean }));
+  } catch (_) {}
+
+  // 2. Cloud sync
+  try {
+    await withDbTimeout(set(ref(database, DB_PATHS.calibration()), clean), 1500);
+  } catch (e) {
+    console.warn("saveCalibration RTDB notice:", e.message);
+  }
 }
 
 // ── Save thresholds ───────────────────────────────────────────
 export async function saveThresholds(thresholdData) {
-  await set(ref(database, DB_PATHS.thresholds()), thresholdData);
+  try {
+    localStorage.setItem("smartenergy_thresholds", JSON.stringify(thresholdData));
+  } catch (_) {}
+  try {
+    await withDbTimeout(set(ref(database, DB_PATHS.thresholds()), thresholdData), 1500);
+  } catch (e) {
+    console.warn("saveThresholds RTDB notice:", e.message);
+  }
 }
 
-// ── Load settings ─────────────────────────────────────────────
+// ── Load settings (Local-First + Cloud Fallback) ───────────────
 export async function loadSettings() {
+  let settings = {
+    tariff:      { ...DEFAULT_SETTINGS.tariff },
+    calibration: { ...DEFAULT_SETTINGS.calibration },
+    thresholds:  { ...DEFAULT_SETTINGS.thresholds }
+  };
+
+  // 1. Instant local cache lookup
   try {
-    const snap = await withDbTimeout(get(ref(database, DB_PATHS.settings())), 1500);
-    if (!snap || !snap.exists()) return DEFAULT_SETTINGS;
-    const s = snap.val();
-    return {
-      tariff:      { ...DEFAULT_SETTINGS.tariff,      ...s.tariff },
-      calibration: { ...DEFAULT_SETTINGS.calibration, ...s.calibration },
-      thresholds:  { ...DEFAULT_SETTINGS.thresholds,  ...s.thresholds }
-    };
+    const savedT = localStorage.getItem("smartenergy_tariff");
+    if (savedT) Object.assign(settings.tariff, JSON.parse(savedT));
+    const savedC = localStorage.getItem("smartenergy_calibration");
+    if (savedC) Object.assign(settings.calibration, JSON.parse(savedC));
+    const savedTh = localStorage.getItem("smartenergy_thresholds");
+    if (savedTh) Object.assign(settings.thresholds, JSON.parse(savedTh));
+  } catch (_) {}
+
+  // 2. Non-blocking cloud refresh
+  try {
+    const snap = await withDbTimeout(get(ref(database, DB_PATHS.settings())), 1200);
+    if (snap && snap.exists()) {
+      const s = snap.val();
+      if (s.tariff)      Object.assign(settings.tariff, s.tariff);
+      if (s.calibration) Object.assign(settings.calibration, s.calibration);
+      if (s.thresholds)  Object.assign(settings.thresholds, s.thresholds);
+    }
   } catch (e) {
-    console.warn("loadSettings fallback to defaults:", e.message);
-    return DEFAULT_SETTINGS;
+    console.warn("loadSettings RTDB notice:", e.message);
   }
+
+  return settings;
 }
 
 // ── Admin action handler (global for inline buttons) ─────────

@@ -63,7 +63,7 @@ export const DEFAULT_SETTINGS = {
     consumerType: "domestic"
   },
   calibration: {
-    voltageMultiplier:  1.000, // Configurable factor (default 1.000)
+    voltageMultiplier:  2.556, // Calibrated for AC mains 230V RMS (230V / 90V approx 2.556)
     voltageOffset:      0.0,   // Voltage offset in Volts
     currentMultiplier:  1.000, // ACS712 current multiplier
     currentOffset:      0.0,   // Current offset in Amperes

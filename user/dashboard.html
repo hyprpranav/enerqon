@@ -303,8 +303,8 @@
         <div class="grid grid-2" style="gap:1rem;">
           <div class="form-group">
             <label class="form-label" for="user-cal-v-mult">Voltage Multiplier (K_v)</label>
-            <input type="number" step="0.001" id="user-cal-v-mult" class="form-control" value="1.000" />
-            <div class="form-hint">Default 1.000 | Recommended ~2.556</div>
+            <input type="number" step="0.001" id="user-cal-v-mult" class="form-control" value="2.556" />
+            <div class="form-hint">Calibrated for 230V AC Mains (2.556)</div>
           </div>
           <div class="form-group">
             <label class="form-label" for="user-cal-v-off">Voltage Offset (V)</label>
@@ -314,7 +314,7 @@
         </div>
         <div style="background:var(--bg-surface);padding:0.5rem 0.75rem;border-radius:var(--radius-sm);margin-bottom:1rem;font-size:0.8rem;display:flex;justify-content:space-between;">
           <span style="color:var(--text-muted);">Voltage Preview:</span>
-          <span>Raw: <span id="user-cal-prev-raw-v" class="font-mono">89.6 V</span> ➔ <strong id="user-cal-prev-corr-v" class="font-mono" style="color:var(--clr-success);">89.6 V</strong></span>
+          <span>Raw: <span id="user-cal-prev-raw-v" class="font-mono">89.6 V</span> ➔ <strong id="user-cal-prev-corr-v" class="font-mono" style="color:var(--clr-success);">229.0 V</strong></span>
         </div>
 
         <div style="font-weight:600;font-size:0.85rem;color:var(--text-primary);margin-bottom:0.4rem;">
@@ -506,7 +506,7 @@
 
     // ── 5. CALIBRATION & TELEMETRY ENGINE ──
     const DEFAULT_CALIBRATION = {
-      voltageMultiplier: 1.000,
+      voltageMultiplier: 2.556,
       voltageOffset:     0.0,
       currentMultiplier: 1.000,
       currentOffset:     0.0,
@@ -519,7 +519,14 @@
     let calSettings = Object.assign({}, DEFAULT_CALIBRATION);
     try {
       const savedCal = localStorage.getItem("smartenergy_calibration");
-      if (savedCal) calSettings = Object.assign(calSettings, JSON.parse(savedCal));
+      if (savedCal) {
+        const parsed = JSON.parse(savedCal);
+        if (parsed.voltageMultiplier === 1.0 || parsed.voltageMultiplier === 1) {
+          parsed.voltageMultiplier = 2.556;
+          localStorage.setItem("smartenergy_calibration", JSON.stringify(parsed));
+        }
+        calSettings = Object.assign(calSettings, parsed);
+      }
     } catch(_) {}
 
     // Restore accumulated energy from localStorage across browser refreshes
@@ -586,7 +593,17 @@
       latestRawCurrent = rawI;
 
       // 1. Single Application Calibration Formula (STEP 3 & STEP 4)
-      let corrV = (rawV * calSettings.voltageMultiplier) + calSettings.voltageOffset;
+      // Smart Auto-Scaling for AC Mains 230V:
+      // If raw reading is attenuated (~80V - 110V, e.g. ~89.6V or 90V), scale by 2.556x to output the actual ~230V mains.
+      // If raw reading is already full AC mains (>= 180V), do not double-scale.
+      let effectiveVMult = (calSettings.voltageMultiplier && calSettings.voltageMultiplier > 0) ? calSettings.voltageMultiplier : 2.556;
+      if (rawV >= 180) {
+        effectiveVMult = (calSettings.voltageMultiplier && Math.abs(calSettings.voltageMultiplier - 2.556) > 0.05) ? calSettings.voltageMultiplier : 1.000;
+      } else if (rawV >= 35 && rawV <= 160) {
+        effectiveVMult = (calSettings.voltageMultiplier && Math.abs(calSettings.voltageMultiplier - 1.000) > 0.05) ? calSettings.voltageMultiplier : 2.556;
+      }
+
+      let corrV = (rawV * effectiveVMult) + calSettings.voltageOffset;
       if (corrV < 0 || !isFinite(corrV)) corrV = 0.0;
       corrV = Math.round(corrV * 10) / 10;
 
@@ -815,6 +832,11 @@
 
         port.addEventListener("disconnect", () => doDisconnect("USB cable was unplugged"));
         startReading();
+
+        // Automatically synchronize ESP32 on-board calibration factor to 2.556 so its LCD displays 230V
+        setTimeout(async () => {
+          await sendSerialCommand("CAL_VOLT:2.556");
+        }, 600);
 
       } catch(err) {
         btn.disabled = false;

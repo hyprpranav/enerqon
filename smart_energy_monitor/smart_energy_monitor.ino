@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 //  SmartEnergy Monitor — ALL-IN-ONE ESP32 FIRMWARE
 //  smart_energy_monitor.ino
 //
@@ -61,10 +61,10 @@
 #define ACS712_SENSITIVITY_V_PER_A 0.185f
 
 // Calibration Factors
-float g_voltageCalFactor   = 1.000f; // Fine-tune against calibrated multimeter
+float g_voltageCalFactor   = 2.556f; // Calibrated for AC mains 230V RMS (scales LM358 ~89.9V sensor output to ~230V)
 float g_currentCalFactor   = 1.000f; // Fine-tune against calibrated clamp meter
 float g_powerFactor        = 0.980f; // Typical residential power factor
-float g_tariffRatePerKwh   = 6.50f;  // Electricity tariff (INR per Unit/kWh)
+float g_tariffRatePerKwh   = 5.00f;  // Electricity tariff (INR per Unit/kWh prototype rate)
 const float CURRENT_NOISE_CUTOFF = 0.050f; // Suppress noise below 50mA
 
 // Zero-Current Baseline

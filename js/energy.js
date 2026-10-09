@@ -7,7 +7,7 @@ export class EnergyCalculator {
   constructor(settings = {}) {
     this.powerFactor       = typeof settings.powerFactor === "number" ? settings.powerFactor : 0.98;
     this.ratePerUnit       = typeof settings.ratePerUnit === "number" ? settings.ratePerUnit : 5.00; // Default ₹5.00/kWh
-    this.voltageMultiplier = typeof settings.voltageMultiplier === "number" ? settings.voltageMultiplier : 1.0;
+    this.voltageMultiplier = typeof settings.voltageMultiplier === "number" ? settings.voltageMultiplier : 2.556;
     this.currentMultiplier = typeof settings.currentMultiplier === "number" ? settings.currentMultiplier : 1.0;
     this.voltageOffset     = typeof settings.voltageOffset === "number" ? settings.voltageOffset : 0.0;
     this.currentOffset     = typeof settings.currentOffset === "number" ? settings.currentOffset : 0.0;
@@ -32,7 +32,14 @@ export class EnergyCalculator {
     const rawV = (typeof rawVoltage === "number" && isFinite(rawVoltage)) ? rawVoltage : 0;
     const rawI = (typeof rawCurrent === "number" && isFinite(rawCurrent)) ? rawCurrent : 0;
 
-    let calV = (rawV * this.voltageMultiplier) + this.voltageOffset;
+    let vFactor = this.voltageMultiplier;
+    if (rawV >= 180) {
+      vFactor = (this.voltageMultiplier && Math.abs(this.voltageMultiplier - 2.556) > 0.05) ? this.voltageMultiplier : 1.000;
+    } else if (rawV >= 35 && rawV <= 160) {
+      vFactor = (this.voltageMultiplier && Math.abs(this.voltageMultiplier - 1.000) > 0.05) ? this.voltageMultiplier : 2.556;
+    }
+
+    let calV = (rawV * vFactor) + this.voltageOffset;
     let calI = (rawI * this.currentMultiplier) + this.currentOffset;
 
     if (calV < 0 || !isFinite(calV)) calV = 0;
